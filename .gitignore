@@ -1,0 +1,37 @@
+# Visual Studio
+.vs/
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.sln
+
+# CMake
+out/
+build/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+compile_commands.json
+
+# Build artifacts
+*.exe
+*.dll
+*.lib
+*.so
+*.dylib
+*.obj
+*.pdb
+*.ilk
+
+# Ninja
+.ninja_deps
+.ninja_log
+*.ninja
+
+# VS Code
+.vscode/
+
+# Backup files
+*.bak
+*~

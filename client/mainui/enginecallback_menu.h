@@ -286,8 +286,10 @@ public:
 #define CL_IsActive()	(EngFuncs::ClientInGame() && !EngFuncs::GetCvarFloat( "cl_background" ))
 #define Host_Error (*EngFuncs::engfuncs.pfnHostError)
 #define Con_DPrintf (*EngFuncs::engfuncs.Con_DPrintf)
+#ifndef CON_NPRINTH
 #define Con_NPrintf (*EngFuncs::engfuncs.Con_NPrintf)
 #define Con_NXPrintf (*EngFuncs::engfuncs.Con_NXPrintf)
+#endif
 #define Con_Printf (*EngFuncs::engfuncs.Con_Printf)
 
 #endif // ENGINECALLBACKS_H

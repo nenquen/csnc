@@ -18,12 +18,15 @@ include_directories(
     engine/engine/server
     engine/engine/platform
     engine/hlsdk
+    engine/hlsdk/public
+    engine/hlsdk/engine
     engine/hlsdk/dlls
     engine/hlsdk/dlls/weapons
     engine/hlsdk/dlls/wpn_shared
     engine/hlsdk/pm_shared
     engine/hlsdk/common
     client/cl_dll/include
+    client/cl_dll/include/hud
     client/cl_dll/../dlls
     client/cl_dll/../dlls/weapons
     client/cl_dll/../dlls/wpn_shared
@@ -39,15 +42,28 @@ include_directories(
 )
 
 # Engine source files
-file(GLOB_RECURSE ENGINE_SOURCES
-    engine/engine/client/*.c
-    engine/engine/common/*.c
-    engine/engine/server/*.c
-    engine/engine/platform/*.c
-)
+if(WIN32)
+    file(GLOB_RECURSE ENGINE_SOURCES
+        engine/engine/client/*.c
+        engine/engine/common/*.c
+        engine/engine/server/*.c
+    )
+    # Exclude SDL files on Windows (use native Win32 instead)
+    file(GLOB SDL_SOURCES engine/engine/platform/sdl/*.c)
+    list(REMOVE_ITEM ENGINE_SOURCES ${SDL_SOURCES})
+else()
+    file(GLOB_RECURSE ENGINE_SOURCES
+        engine/engine/client/*.c
+        engine/engine/common/*.c
+        engine/engine/server/*.c
+        engine/engine/platform/*.c
+    )
+endif()
 
-# Loader sources
-file(GLOB LOADER_SOURCES engine/loader/*.c)
+# Loader sources (Unix/Linux only - for Wine-like functionality)
+if(NOT WIN32)
+    file(GLOB LOADER_SOURCES engine/loader/*.c)
+endif()
 
 # Game launch sources
 set(GAME_LAUNCH_SOURCES engine/game_launch/xash.c)
@@ -61,7 +77,6 @@ file(GLOB_RECURSE MAINUI_ENGINE_SOURCES engine/mainui/*.cpp)
 # Create engine library
 add_library(xash_engine SHARED ${ENGINE_SOURCES} ${LOADER_SOURCES} ${VGUI_SOURCES})
 target_compile_definitions(xash_engine PRIVATE
-    XASH_SDL
     _WIN32
     WIN32
     HAVE_INTTYPES
