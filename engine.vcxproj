@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{F9D1E760-3A72-4D4A-A1D7-2B0A3C4C7B90}</ProjectGuid>
+    <Keyword>MakeFileProj</Keyword>
+    <RootNamespace>engine</RootNamespace>
+    <MinimumVisualStudioVersion>17.0</MinimumVisualStudioVersion>
+  </PropertyGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Makefile</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Makefile</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+
+  <PropertyGroup>
+    <EngineSourceDir>$(SolutionDir)engine</EngineSourceDir>
+    <EngineBuildDir>$(SolutionDir)build\engine\$(Configuration)</EngineBuildDir>
+  </PropertyGroup>
+
+  <ItemDefinitionGroup>
+    <NMakeBuildCommandLine>cmake -S "$(EngineSourceDir)" -B "$(EngineBuildDir)" -G "Visual Studio 17 2022" -A Win32 -T v143 &amp;&amp; cmake --build "$(EngineBuildDir)" --config $(Configuration)</NMakeBuildCommandLine>
+    <NMakeReBuildCommandLine>cmake -S "$(EngineSourceDir)" -B "$(EngineBuildDir)" -G "Visual Studio 17 2022" -A Win32 -T v143 &amp;&amp; cmake --build "$(EngineBuildDir)" --config $(Configuration) --clean-first</NMakeReBuildCommandLine>
+    <NMakeCleanCommandLine>cmake --build "$(EngineBuildDir)" --config $(Configuration) --target clean</NMakeCleanCommandLine>
+    <NMakeOutput>$(EngineBuildDir)\$(Configuration)\xash_sdl.dll</NMakeOutput>
+  </ItemDefinitionGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>
