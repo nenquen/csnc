@@ -11,10 +11,245 @@ if(MSVC)
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS _CRT_NONSTDC_NO_WARNINGS _WINSOCK_DEPRECATED_NO_WARNINGS)
 endif()
 
-# SDL2 source build
-set(SDL_SHARED ON CACHE BOOL "Build SDL2 as shared library")
-set(SDL_STATIC OFF CACHE BOOL "Build SDL2 as static library")
-add_subdirectory(engine/SDL2)
+# SDL2 source build - integrated directly
+set(SDL_SHARED ON)
+set(SDL_STATIC OFF)
+set(SDL_TEST OFF)
+set(SDL_TESTS OFF)
+
+# SDL2 Windows-specific source files
+set(SDL2_SOURCES
+    engine/SDL2/src/SDL.c
+    engine/SDL2/src/SDL_assert.c
+    engine/SDL2/src/SDL_dataqueue.c
+    engine/SDL2/src/SDL_error.c
+    engine/SDL2/src/SDL_guid.c
+    engine/SDL2/src/SDL_hints.c
+    engine/SDL2/src/SDL_list.c
+    engine/SDL2/src/SDL_log.c
+    engine/SDL2/src/SDL_utils.c
+    engine/SDL2/src/atomic/SDL_atomic.c
+    engine/SDL2/src/atomic/SDL_spinlock.c
+    engine/SDL2/src/audio/SDL_audio.c
+    engine/SDL2/src/audio/SDL_audiocvt.c
+    engine/SDL2/src/audio/SDL_audiodev.c
+    engine/SDL2/src/audio/SDL_audiotypecvt.c
+    engine/SDL2/src/audio/SDL_mixer.c
+    engine/SDL2/src/audio/SDL_wave.c
+    engine/SDL2/src/cpuinfo/SDL_cpuinfo.c
+    engine/SDL2/src/dynapi/SDL_dynapi.c
+    engine/SDL2/src/events/SDL_clipboardevents.c
+    engine/SDL2/src/events/SDL_displayevents.c
+    engine/SDL2/src/events/SDL_dropevents.c
+    engine/SDL2/src/events/SDL_events.c
+    engine/SDL2/src/events/SDL_gesture.c
+    engine/SDL2/src/events/SDL_keyboard.c
+    engine/SDL2/src/events/SDL_keysym_to_scancode.c
+    engine/SDL2/src/events/SDL_mouse.c
+    engine/SDL2/src/events/SDL_quit.c
+    engine/SDL2/src/events/SDL_scancode_tables.c
+    engine/SDL2/src/events/SDL_touch.c
+    engine/SDL2/src/events/SDL_windowevents.c
+    engine/SDL2/src/events/imKStoUCS.c
+    engine/SDL2/src/file/SDL_rwops.c
+    engine/SDL2/src/haptic/SDL_haptic.c
+    engine/SDL2/src/joystick/SDL_gamecontroller.c
+    engine/SDL2/src/joystick/SDL_joystick.c
+    engine/SDL2/src/joystick/SDL_steam_virtual_gamepad.c
+    engine/SDL2/src/joystick/controller_type.c
+    engine/SDL2/src/libm/e_atan2.c
+    engine/SDL2/src/libm/e_exp.c
+    engine/SDL2/src/libm/e_fmod.c
+    engine/SDL2/src/libm/e_log.c
+    engine/SDL2/src/libm/e_log10.c
+    engine/SDL2/src/libm/e_pow.c
+    engine/SDL2/src/libm/e_rem_pio2.c
+    engine/SDL2/src/libm/e_sqrt.c
+    engine/SDL2/src/libm/k_cos.c
+    engine/SDL2/src/libm/k_rem_pio2.c
+    engine/SDL2/src/libm/k_sin.c
+    engine/SDL2/src/libm/k_tan.c
+    engine/SDL2/src/libm/s_atan.c
+    engine/SDL2/src/libm/s_copysign.c
+    engine/SDL2/src/libm/s_cos.c
+    engine/SDL2/src/libm/s_fabs.c
+    engine/SDL2/src/libm/s_floor.c
+    engine/SDL2/src/libm/s_scalbn.c
+    engine/SDL2/src/libm/s_sin.c
+    engine/SDL2/src/libm/s_tan.c
+    engine/SDL2/src/locale/SDL_locale.c
+    engine/SDL2/src/misc/SDL_url.c
+    engine/SDL2/src/power/SDL_power.c
+    engine/SDL2/src/render/SDL_d3dmath.c
+    engine/SDL2/src/render/SDL_render.c
+    engine/SDL2/src/render/SDL_yuv_sw.c
+    engine/SDL2/src/render/direct3d/SDL_render_d3d.c
+    engine/SDL2/src/render/direct3d11/SDL_render_d3d11.c
+    engine/SDL2/src/render/direct3d12/SDL_render_d3d12.c
+    engine/SDL2/src/render/opengl/SDL_render_gl.c
+    engine/SDL2/src/render/opengles/SDL_render_gles.c
+    engine/SDL2/src/render/opengles2/SDL_render_gles2.c
+    engine/SDL2/src/render/ps2/SDL_render_ps2.c
+    engine/SDL2/src/render/psp/SDL_render_psp.c
+    engine/SDL2/src/render/software/SDL_blendfillrect.c
+    engine/SDL2/src/render/software/SDL_blendline.c
+    engine/SDL2/src/render/software/SDL_blendpoint.c
+    engine/SDL2/src/render/software/SDL_drawline.c
+    engine/SDL2/src/render/software/SDL_drawpoint.c
+    engine/SDL2/src/render/software/SDL_render_sw.c
+    engine/SDL2/src/render/software/SDL_rotate.c
+    engine/SDL2/src/render/software/SDL_triangle.c
+    engine/SDL2/src/render/vitagxm/SDL_render_vita_gxm.c
+    engine/SDL2/src/render/vitagxm/SDL_render_vita_gxm_memory.c
+    engine/SDL2/src/render/vitagxm/SDL_render_vita_gxm_tools.c
+    engine/SDL2/src/sensor/SDL_sensor.c
+    engine/SDL2/src/stdlib/SDL_crc16.c
+    engine/SDL2/src/stdlib/SDL_crc32.c
+    engine/SDL2/src/stdlib/SDL_getenv.c
+    engine/SDL2/src/stdlib/SDL_iconv.c
+    engine/SDL2/src/stdlib/SDL_malloc.c
+    engine/SDL2/src/stdlib/SDL_qsort.c
+    engine/SDL2/src/stdlib/SDL_stdlib.c
+    engine/SDL2/src/stdlib/SDL_string.c
+    engine/SDL2/src/stdlib/SDL_strtokr.c
+    engine/SDL2/src/thread/SDL_thread.c
+    engine/SDL2/src/timer/SDL_timer.c
+    engine/SDL2/src/video/SDL_RLEaccel.c
+    engine/SDL2/src/video/SDL_blit.c
+    engine/SDL2/src/video/SDL_blit_0.c
+    engine/SDL2/src/video/SDL_blit_1.c
+    engine/SDL2/src/video/SDL_blit_A.c
+    engine/SDL2/src/video/SDL_blit_N.c
+    engine/SDL2/src/video/SDL_blit_auto.c
+    engine/SDL2/src/video/SDL_blit_copy.c
+    engine/SDL2/src/video/SDL_blit_slow.c
+    engine/SDL2/src/video/SDL_bmp.c
+    engine/SDL2/src/video/SDL_clipboard.c
+    engine/SDL2/src/video/SDL_egl.c
+    engine/SDL2/src/video/SDL_fillrect.c
+    engine/SDL2/src/video/SDL_pixels.c
+    engine/SDL2/src/video/SDL_rect.c
+    engine/SDL2/src/video/SDL_shape.c
+    engine/SDL2/src/video/SDL_stretch.c
+    engine/SDL2/src/video/SDL_surface.c
+    engine/SDL2/src/video/SDL_video.c
+    engine/SDL2/src/video/SDL_vulkan_utils.c
+    engine/SDL2/src/video/SDL_yuv.c
+    engine/SDL2/src/video/yuv2rgb/yuv_rgb_lsx.c
+    engine/SDL2/src/video/yuv2rgb/yuv_rgb_sse.c
+    engine/SDL2/src/video/yuv2rgb/yuv_rgb_std.c
+)
+
+# Windows-specific SDL2 sources
+set(SDL2_WIN32_SOURCES
+    engine/SDL2/src/audio/directsound/SDL_directsound.c
+    engine/SDL2/src/audio/winmm/SDL_winmm.c
+    engine/SDL2/src/audio/wasapi/SDL_wasapi.c
+    engine/SDL2/src/audio/wasapi/SDL_wasapi_win32.c
+    engine/SDL2/src/core/windows/SDL_windows.c
+    engine/SDL2/src/core/windows/SDL_xinput.c
+    engine/SDL2/src/filesystem/windows/SDL_sysfilesystem.c
+    engine/SDL2/src/haptic/windows/SDL_dinputhaptic.c
+    engine/SDL2/src/haptic/windows/SDL_windowshaptic.c
+    engine/SDL2/src/haptic/windows/SDL_xinputhaptic.c
+    engine/SDL2/src/hidapi/SDL_hidapi.c
+    engine/SDL2/src/joystick/windows/SDL_dinputjoystick.c
+    engine/SDL2/src/joystick/windows/SDL_rawinputjoystick.c
+    engine/SDL2/src/joystick/windows/SDL_windows_gaming_input.c
+    engine/SDL2/src/joystick/windows/SDL_windowsjoystick.c
+    engine/SDL2/src/joystick/windows/SDL_xinputjoystick.c
+    engine/SDL2/src/locale/windows/SDL_syslocale.c
+    engine/SDL2/src/loadso/windows/SDL_sysloadso.c
+    engine/SDL2/src/power/windows/SDL_syspower.c
+    engine/SDL2/src/render/direct3d11/SDL_shaders_d3d11.c
+    engine/SDL2/src/render/direct3d12/SDL_shaders_d3d12.c
+    engine/SDL2/src/render/opengl/SDL_shaders_gl.c
+    engine/SDL2/src/render/opengles2/SDL_shaders_gles2.c
+    engine/SDL2/src/sensor/windows/SDL_windowssensor.c
+    engine/SDL2/src/thread/windows/SDL_syscond_cv.c
+    engine/SDL2/src/thread/windows/SDL_sysmutex.c
+    engine/SDL2/src/thread/windows/SDL_syssem.c
+    engine/SDL2/src/thread/windows/SDL_systhread.c
+    engine/SDL2/src/thread/windows/SDL_systls.c
+    engine/SDL2/src/timer/windows/SDL_systimer.c
+    engine/SDL2/src/video/windows/SDL_windowsclipboard.c
+    engine/SDL2/src/video/windows/SDL_windowsevents.c
+    engine/SDL2/src/video/windows/SDL_windowsframebuffer.c
+    engine/SDL2/src/video/windows/SDL_windowskeyboard.c
+    engine/SDL2/src/video/windows/SDL_windowsmessagebox.c
+    engine/SDL2/src/video/windows/SDL_windowsmodes.c
+    engine/SDL2/src/video/windows/SDL_windowsmouse.c
+    engine/SDL2/src/video/windows/SDL_windowsopengl.c
+    engine/SDL2/src/video/windows/SDL_windowsopengles.c
+    engine/SDL2/src/video/windows/SDL_windowsshape.c
+    engine/SDL2/src/video/windows/SDL_windowsvideo.c
+    engine/SDL2/src/video/windows/SDL_windowsvulkan.c
+    engine/SDL2/src/video/windows/SDL_windowswindow.c
+    engine/SDL2/src/core/windows/SDL_immdevice.c
+    engine/SDL2/src/hidapi/windows/hid.c
+)
+
+# SDL2 static/dummy sources
+set(SDL2_STATIC_SOURCES
+    engine/SDL2/src/audio/dummy/SDL_dummyaudio.c
+    engine/SDL2/src/audio/disk/SDL_diskaudio.c
+    engine/SDL2/src/joystick/virtual/SDL_virtualjoystick.c
+    engine/SDL2/src/video/dummy/SDL_nullevents.c
+    engine/SDL2/src/video/dummy/SDL_nullframebuffer.c
+    engine/SDL2/src/video/dummy/SDL_nullvideo.c
+    engine/SDL2/src/video/offscreen/SDL_offscreenevents.c
+    engine/SDL2/src/video/offscreen/SDL_offscreenframebuffer.c
+    engine/SDL2/src/video/offscreen/SDL_offscreenopengles.c
+    engine/SDL2/src/video/offscreen/SDL_offscreenvideo.c
+    engine/SDL2/src/video/offscreen/SDL_offscreenwindow.c
+)
+
+add_library(SDL2 SHARED ${SDL2_SOURCES} ${SDL2_WIN32_SOURCES} ${SDL2_STATIC_SOURCES})
+
+target_include_directories(SDL2 PUBLIC
+    engine/SDL2/include
+    engine/SDL2/src
+)
+
+target_compile_definitions(SDL2 PRIVATE
+    DLL_EXPORT
+    _CRT_SECURE_NO_WARNINGS
+    _CRT_NONSTDC_NO_WARNINGS
+    HAVE_STDINT_H
+    HAVE_DDRAW_H
+    HAVE_DINPUT_H
+    HAVE_DSOUND_H
+    HAVE_DXGI_H
+    HAVE_XINPUT_H
+    HAVE_Vulkan_HEADER
+)
+
+if(MSVC)
+    target_compile_options(SDL2 PRIVATE /wd4996 /wd4244 /wd4305)
+endif()
+
+target_link_libraries(SDL2 PRIVATE
+    user32
+    gdi32
+    winmm
+    imm32
+    ole32
+    oleaut32
+    version
+    uuid
+    advapi32
+    shell32
+    dinput8
+    dxguid
+    xinput
+)
+
+set_target_properties(SDL2 PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+)
+
 
 # Engine source files
 if(WIN32)
@@ -103,9 +338,9 @@ target_link_libraries(xash_engine PRIVATE
 )
 
 if(WIN32)
-    # SDL2 is now built from source via add_subdirectory
+    # SDL2 is now built directly in main CMakeLists.txt
     # Link against the SDL2 target directly
-    target_link_libraries(xash_engine PRIVATE SDL2::SDL2)
+    target_link_libraries(xash_engine PRIVATE SDL2)
 endif()
 
 set_target_properties(xash_engine PROPERTIES
