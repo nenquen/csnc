@@ -207,6 +207,38 @@ set_target_properties(client_dll PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
+# Server game DLL (mp.dll)
+file(GLOB_RECURSE MP_DLL_SOURCES
+    engine/hlsdk/dlls/*.cpp
+)
+
+add_library(mp_dll SHARED ${MP_DLL_SOURCES})
+target_include_directories(mp_dll PRIVATE
+    engine/hlsdk
+    engine/hlsdk/public
+    engine/hlsdk/engine
+    engine/hlsdk/dlls
+    engine/hlsdk/dlls/weapons
+    engine/hlsdk/dlls/wpn_shared
+    engine/hlsdk/pm_shared
+    engine/hlsdk/common
+)
+target_compile_definitions(mp_dll PRIVATE
+    HL_DLL
+    _WIN32
+    WIN32
+)
+if(MSVC)
+    target_compile_definitions(mp_dll PRIVATE _CRT_SECURE_NO_WARNINGS)
+endif()
+target_link_libraries(mp_dll PRIVATE
+    winmm
+)
+set_target_properties(mp_dll PROPERTIES
+    OUTPUT_NAME "mp"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
 # MainUI DLL (client/mainui)
 file(GLOB_RECURSE MAINUI_SOURCES
     client/mainui/*.cpp
