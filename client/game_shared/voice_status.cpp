@@ -13,8 +13,8 @@
 	#include "../ricochet/cl_dll/hud.h"
 	#include "../ricochet/cl_dll/cl_util.h"
 #else
-	#include "../cl_dll/hud.h"
-	#include "../cl_dll/cl_util.h"
+	#include "../cl_dll/include/hud/hud.h"
+	#include "../cl_dll/include/cl_util.h"
 #endif
 
 #include <assert.h>
@@ -23,16 +23,16 @@
 
 #if defined( DMC_BUILD )
 	#include "../dmc/cl_dll/parsemsg.h"
-	#include "../dmc/cl_dll/hud_servers.h"
+	// #include "../dmc/cl_dll/hud_servers.h"
 	#include "../dmc/cl_dll/demo.h"
 #elif defined( RICOCHET_BUILD )
 	#include "../ricochet/cl_dll/parsemsg.h"
-	#include "../ricochet/cl_dll/hud_servers.h"
+	// #include "../ricochet/cl_dll/hud_servers.h"
 	#include "../ricochet/cl_dll/demo.h"
 #else
-	#include "../cl_dll/parsemsg.h"
-	#include "../cl_dll/hud_servers.h"
-	#include "../cl_dll/demo.h"
+	#include "../cl_dll/include/parsemsg.h"
+	// #include "../cl_dll/include/hud_servers.h"
+	#include "../cl_dll/include/demo.h"
 #endif
 
 #include "demo_api.h"

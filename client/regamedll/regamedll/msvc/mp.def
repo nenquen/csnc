@@ -1,0 +1,7 @@
+LIBRARY mp
+EXPORTS
+	GiveFnptrsToDll			@1
+	GetEntityAPI2			@2
+	GetNewDLLFunctions		@3
+SECTIONS
+	.data READ WRITE

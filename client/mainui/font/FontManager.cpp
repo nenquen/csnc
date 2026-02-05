@@ -17,6 +17,10 @@ GNU General Public License for more details.
 #include "BaseMenu.h"
 #include "Utils.h"
 
+#ifdef _WIN32
+#include <excpt.h>
+#endif
+
 #include "BaseFontBackend.h"
 
 #if defined(MAINUI_USE_FREETYPE)
@@ -200,12 +204,30 @@ void CFontManager::GetTextSize(HFont fontHandle, const char *text, int *wide, in
 {
 	CBaseFont *font = GetIFontFromHandle( fontHandle );
 
+#ifdef _WIN32
+	__try
+	{
+		if( !font || !text || !text[0] )
+		{
+			if( wide ) *wide = 0;
+			if( tall ) *tall = 0;
+			return;
+		}
+	}
+	__except( EXCEPTION_EXECUTE_HANDLER )
+	{
+		if( wide ) *wide = 0;
+		if( tall ) *tall = 0;
+		return;
+	}
+#else
 	if( !font || !text || !text[0] )
 	{
 		if( wide ) *wide = 0;
 		if( tall ) *tall = 0;
 		return;
 	}
+#endif
 
 	int fontTall = font->GetHeight(), x = 0;
 	int _wide = 0, _tall;

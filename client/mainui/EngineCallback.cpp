@@ -65,16 +65,27 @@ int EngFuncs::DrawConsoleString(int x, int y, const char *string)
 
 	charSz = g_FontMgr.GetFontTall( uiStatic.hConsoleFont );
 
+	if( charSz <= 0 )
+		return 0;
+
 	return UI_DrawString( uiStatic.hConsoleFont, pt, sz, string, color, charSz, QM_TOPLEFT );
 }
 
 void EngFuncs::ConsoleStringLen(const char *string, int *length, int *height)
 {
+	if( uiStatic.hConsoleFont <= 0 )
+	{
+		if( length ) *length = 0;
+		if( height ) *height = 0;
+		return;
+	}
 	g_FontMgr.GetTextSize( uiStatic.hConsoleFont, string, length, height );
 }
 
 int EngFuncs::ConsoleCharacterHeight()
 {
+	if( uiStatic.hConsoleFont <= 0 )
+		return 0;
 	return g_FontMgr.GetFontTall( uiStatic.hConsoleFont );
 }
 

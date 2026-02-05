@@ -36,6 +36,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "Scoreboard.h"
 #endif
 
+#ifdef _WIN32
+#include <excpt.h>
+#endif
+
 cvar_t		*ui_showmodels;
 cvar_t		*ui_show_window_stack;
 cvar_t		*ui_borderclip;
@@ -288,8 +292,24 @@ int UI_DrawString( HFont font, int x, int y, int w, int h,
 	int	xx = 0, yy, ofsX = 0, ofsY = 0, ch;
 	int maxX = x;
 
+	// Validate font handle - if invalid, return early
+	if( font <= 0 )
+		return x;
+
+#ifdef _WIN32
+	__try
+	{
+		if( !string || !string[0] )
+			return x;
+	}
+	__except( EXCEPTION_EXECUTE_HANDLER )
+	{
+		return x;
+	}
+#else
 	if( !string || !string[0] )
 		return x;
+#endif
 
 	if( flags & ETF_SHADOW )
 	{

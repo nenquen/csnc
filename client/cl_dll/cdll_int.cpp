@@ -368,3 +368,14 @@ int DLLEXPORT HUD_MobilityInterface( mobile_engfuncs_t *mobileapi )
 
 	return 0;
 }
+
+/*
+========================
+HUD_PostRunCmd
+========================
+*/
+void DLLEXPORT HUD_PostRunCmd( struct local_state_s *from, struct local_state_s *to, struct usercmd_s *cmd, int runfuncs, double time, unsigned int random_seed )
+{
+	// Stub function - weapon prediction not implemented for Win32 yet
+	// This is required by the engine but can be empty for now
+}
