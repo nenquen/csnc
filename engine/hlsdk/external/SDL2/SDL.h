@@ -113,6 +113,16 @@ extern "C" {
 #define SDL_INIT_HAPTIC         0x00001000
 #define SDL_INIT_GAMECONTROLLER 0x00002000		/**< turn on game controller also implicitly does JOYSTICK */
 #define SDL_INIT_NOPARACHUTE    0x00100000      /**< Don't catch fatal signals */
+
+/* Compatibility macros (not present in this bundled SDL header set) */
+#ifndef SDL_INIT_EVENTS
+#define SDL_INIT_EVENTS SDL_INIT_VIDEO
+#endif
+
+#ifndef SDL_HINT_ACCELEROMETER_AS_JOYSTICK
+#define SDL_HINT_ACCELEROMETER_AS_JOYSTICK "SDL_ACCELEROMETER_AS_JOYSTICK"
+#endif
+
 #define SDL_INIT_EVERYTHING ( \
                 SDL_INIT_TIMER | SDL_INIT_AUDIO | SDL_INIT_VIDEO | \
                 SDL_INIT_JOYSTICK | SDL_INIT_HAPTIC | SDL_INIT_GAMECONTROLLER \

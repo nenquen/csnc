@@ -14,6 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "common.h"
+#include "mathlib.h"
 #include "server.h"
 #include "const.h"
 #include "library.h"

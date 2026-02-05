@@ -30,6 +30,7 @@
 #include "event_args.h"
 #include "in_defs.h"
 
+#include <math.h>
 #include <string.h>
 
 #include "r_studioint.h"
@@ -39,7 +40,12 @@ extern engine_studio_api_t IEngineStudio;
 
 static int tracerCount[ 32 ];
 
-extern "C" char PM_FindTextureType( char *name );
+char PM_FindTextureType( char *name );
+void EV_CreateTracer( float *start, float *end );
+static float Length( const float *v )
+{
+	return sqrtf( v[0] * v[0] + v[1] * v[1] + v[2] * v[2] );
+}
 
 void V_PunchAxis( int axis, float punch );
 void VectorAngles( const float *forward, float *angles );

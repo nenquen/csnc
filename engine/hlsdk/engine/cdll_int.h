@@ -36,6 +36,7 @@ extern "C" {
 // so make sure engine declarations aren't done twice
 
 typedef int HSPRITE;	// handle to a graphic
+typedef int _HSPRITE;	// alias for HSPRITE
 
 #define SCRINFO_SCREENFLASH 1
 #define SCRINFO_STRETCHED	2

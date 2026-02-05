@@ -15,6 +15,8 @@ GNU General Public License for more details.
 #ifndef XASH_DEDICATED
 
 #include "common.h"
+#include "../common/xash3d_types.h"
+#include "../common/crtlib.h"
 #include "input.h"
 #include "touch.h"
 #include "client.h"
@@ -980,8 +982,6 @@ void Host_InputFrame( void )
 
 	IN_MouseMove();
 }
-#endif
-
 /*
 ================
 IN_LockInputCvars
@@ -1009,3 +1009,5 @@ void IN_LockInputCvars( void )
 		Cvar_FullSet( "joy_enable", va( "%s", joy_enable->string), joy_enable->flags & ~CVAR_READ_ONLY );
 	}
 }
+
+#endif

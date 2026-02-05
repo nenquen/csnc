@@ -24,8 +24,12 @@
 float rsqrt( float x );
 
 // Header file containing definition of globalvars_t and entvars_t
-typedef int	func_t;					//
+#ifndef FUNC_T_DEFINED
+typedef int	func_t;				//
+#endif
+#ifndef STRING_T_DEFINED
 typedef int	string_t;				// from engine's pr_comp.h;
+#endif
 typedef float vec_t;				// needed before including progdefs.h
 
 //=========================================================

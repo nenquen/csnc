@@ -23,6 +23,7 @@ extern "C" {
 #include <stdint.h>
 #include <inttypes.h>
 #include "port.h"
+#include "xash3d_types.h"
 
 #include "backends.h"
 #include "defaults.h"

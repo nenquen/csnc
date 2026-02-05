@@ -716,8 +716,14 @@ enum
 };
 
 
+#ifndef FUNC_T_DEFINED
 typedef unsigned int	func_t;
+#define FUNC_T_DEFINED
+#endif
+#ifndef STRING_T_DEFINED
 typedef unsigned int	string_t;
+#define STRING_T_DEFINED
+#endif
 
 typedef unsigned char 		byte;
 typedef unsigned short 		word;

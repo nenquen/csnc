@@ -33,6 +33,11 @@
 #include "SDL_rect.h"
 #include "SDL_surface.h"
 
+/* Compatibility macro (not present in this bundled SDL header set) */
+#ifndef SDL_WINDOW_ALLOW_HIGHDPI
+#define SDL_WINDOW_ALLOW_HIGHDPI 0
+#endif
+
 #include "begin_code.h"
 /* Set up for C function definitions, even when using C++ */
 #ifdef __cplusplus

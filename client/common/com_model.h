@@ -14,6 +14,8 @@
 #endif /* not __MINGW32__ */
 #endif
 
+#include "custom.h"
+
 #define STUDIO_RENDER 1
 #define STUDIO_EVENTS 2
 

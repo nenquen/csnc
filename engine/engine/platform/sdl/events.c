@@ -15,6 +15,7 @@ GNU General Public License for more details.
 
 #ifdef XASH_SDL
 #include <SDL.h>
+ #include <stdio.h>
 
 #include "common.h"
 #include "keydefs.h"
@@ -34,6 +35,42 @@ static SDL_Joystick *joy;
 static SDL_GameController *gamecontroller;
 
 void R_ChangeDisplaySettingsFast( int w, int h );
+
+static int SDLash_AddControllerMappingsFromFile( const char *path )
+{
+	FILE *fp;
+	char line[1024];
+	int total = 0;
+
+	if( !path || !path[0] )
+		return 0;
+
+	fp = fopen( path, "rb" );
+	if( !fp )
+		return 0;
+
+	while( fgets( line, (int)sizeof( line ), fp ) )
+	{
+		char *p = line;
+		char *e;
+
+		while( *p == ' ' || *p == '\t' || *p == '\r' || *p == '\n' )
+			p++;
+		if( !*p || *p == '#' )
+			continue;
+
+		e = p;
+		while( *e && *e != '\r' && *e != '\n' )
+			e++;
+		*e = 0;
+
+		if( SDL_GameControllerAddMapping( p ) >= 0 )
+			total++;
+	}
+
+	fclose( fp );
+	return total;
+}
 
 /*
 =============
@@ -606,8 +643,7 @@ static int SDLash_JoyInit_New( int numjoy )
 		return 0;
 	}
 
-	// chance to add mappings from file
-	SDL_GameControllerAddMappingsFromFile( "controllermappings.txt" );
+	SDLash_AddControllerMappingsFromFile( "controllermappings.txt" );
 
 	if( gamecontroller )
 	{

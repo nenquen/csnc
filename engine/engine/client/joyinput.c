@@ -447,7 +447,11 @@ void Joy_Init( void )
 #elif defined(ANDROID)
 	// Initalized after first Joy_AddEvent
 #else
-#warning "Any platform must implement platform-dependent JoyInit, start event system. Otherwise no joystick support"
+	#if defined(_MSC_VER)
+		#pragma message("Any platform must implement platform-dependent JoyInit, start event system. Otherwise no joystick support")
+	#else
+		#warning "Any platform must implement platform-dependent JoyInit, start event system. Otherwise no joystick support"
+	#endif
 #endif
 
 	if( joy_found->integer > 0 )
