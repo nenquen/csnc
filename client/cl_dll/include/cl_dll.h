@@ -89,6 +89,7 @@ struct kbutton_s   DLLEXPORT *KB_Find( const char *name );
 
 void       DLLEXPORT IN_ClientMoveEvent( float forwardmove, float sidemove );
 void       DLLEXPORT IN_ClientLookEvent( float relyaw, float relpitch );
+void       DLLEXPORT HUD_ImGuiDraw( void );	// Xash3D ext: ImGui support
 }
 
 

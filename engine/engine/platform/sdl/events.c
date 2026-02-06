@@ -28,6 +28,7 @@ GNU General Public License for more details.
 #include "sound.h"
 #include "gl_vidnt.h"
 #include "imgui_console.h"
+#include "imgui_mainmenu.h"
 
 extern convar_t *vid_fullscreen;
 extern convar_t *snd_mute_losefocus;
@@ -216,8 +217,8 @@ static void SDLash_MouseEvent( SDL_MouseButtonEvent button )
 {
 	int down = button.type == SDL_MOUSEBUTTONDOWN ? 1 : 0;
 	
-	// If ImGui console is active, don't process mouse for game
-	if( ImGuiConsole_IsActive() )
+	// If ImGui console or main menu is active, don't process mouse for game
+	if( ImGuiConsole_IsActive() || ImGui_MainMenu_IsActive() )
 		return;
 	
 	if( in_mouseinitialized && !m_ignore->integer && button.which != SDL_TOUCH_MOUSEID )
@@ -293,8 +294,8 @@ static void SDLash_EventFilter( SDL_Event *event )
 {
 	static int mdown;
 
-	// Pass events to ImGui first if console is active
-	if( ImGuiConsole_IsActive() )
+	// Pass events to ImGui first if console or main menu is active
+	if( ImGuiConsole_IsActive() || ImGui_MainMenu_IsActive() )
 	{
 		ImGui_ProcessEvent( event );
 	}

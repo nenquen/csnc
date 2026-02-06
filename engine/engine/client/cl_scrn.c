@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include "vgui_draw.h"
 #include "qfont.h"
 #include "library.h"
+#include "imgui_console.h"
 
 convar_t *scr_centertime;
 convar_t *scr_loading;
@@ -667,11 +668,15 @@ void SCR_VidInit( void )
 	clgame.load_sequence++; // now all hud sprites are invalid
 	
 	// vid_state has changed
-	if( menu.hInstance ) menu.dllFuncs.pfnVidInit();
+	// NOTE: menu.dllFuncs.pfnVidInit() disabled - using ImGui menu instead of MainUI
+	// if( menu.hInstance ) menu.dllFuncs.pfnVidInit();
 	if( clgame.hInstance ) clgame.dllFuncs.pfnVidInit();
 
 	// restart console size
 	Con_VidInit ();
+    
+    // reset ImGui backend (OpenGL state lost)
+    ImGui_VidInit();
 }
 
 /*
@@ -715,6 +720,9 @@ void SCR_Init( void )
 	SCR_InitCinematic();
 	CL_InitNetgraph();
 	SCR_VidInit();
+
+	// Initialize ImGui system
+	ImGui_Init();
 
 	if( host.state != HOST_RESTART )
 	{

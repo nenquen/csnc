@@ -11,6 +11,8 @@ extern "C" {
 // Initialize/Shutdown ImGui system
 void ImGui_Init(void);
 void ImGui_Shutdown(void);
+// Called when video system restarts (e.g. resolution change)
+void ImGui_VidInit(void);
 
 // Call at start of frame
 void ImGui_NewFrame(void);
@@ -26,6 +28,9 @@ void ImGuiConsole_Toggle(void);
 void ImGuiConsole_Draw(void);
 qboolean ImGuiConsole_IsActive(void);
 void ImGuiConsole_AddToOutput(const char *text);
+
+// Check if ImGui system is initialized
+qboolean ImGui_IsInitialized(void);
 
 #ifdef __cplusplus
 }

@@ -57,11 +57,13 @@ add_library(xash_engine SHARED ${ENGINE_SOURCES} ${LOADER_SOURCES} ${VGUI_SOURCE
 # Add imgui_console.cpp separately as C++ file
 target_sources(xash_engine PRIVATE 
     ${CMAKE_CURRENT_SOURCE_DIR}/engine/engine/client/imgui_console.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/engine/engine/client/imgui_mainmenu.cpp
 )
 
 # Set specific include directories for imgui_console.cpp to get ImGui headers
 set_source_files_properties(
     ${CMAKE_CURRENT_SOURCE_DIR}/engine/engine/client/imgui_console.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/engine/engine/client/imgui_mainmenu.cpp
     PROPERTIES INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/engine/imgui;${CMAKE_CURRENT_SOURCE_DIR}/engine/imgui/backends"
 )
 
@@ -271,56 +273,6 @@ add_custom_command(TARGET client_dll POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CLEANOUT_DIR}/cl_dlls"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:client_dll>" "${CLEANOUT_DIR}/cl_dlls"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_PDB_FILE:client_dll>" "${CLEANOUT_DIR}/cl_dlls"
-)
-
-# MainUI DLL (client/mainui)
-file(GLOB_RECURSE MAINUI_SOURCES
-    client/mainui/*.cpp
-    client/mainui/controls/*.cpp
-    client/mainui/font/*.cpp
-    client/mainui/menus/*.cpp
-)
-
-add_library(mainui_dll SHARED ${MAINUI_SOURCES})
-target_include_directories(mainui_dll PRIVATE
-    client/mainui
-    client/mainui/miniutl
-    client/mainui/font
-    client/mainui/controls
-    client/mainui/menus
-    client/mainui/model
-    client/common
-    client/engine
-    client/pm_shared
-    client/public
-)
-target_compile_definitions(mainui_dll PRIVATE
-    _WIN32
-    WIN32
-    MAINUI_DONT_USE_VGUI
-)
-if(MSVC)
-    target_compile_definitions(mainui_dll PRIVATE _CRT_SECURE_NO_WARNINGS)
-    target_compile_options(mainui_dll PRIVATE
-        /wd4244 /wd4305 /wd4018 /wd4100 /wd4127 /wd4057 /wd4201 /wd4706 /wd4054 /wd4310
-        /wd4267 /wd4723 /wd4101 /wd4005
-    )
-endif()
-
-target_link_libraries(mainui_dll PRIVATE
-    user32
-    gdi32
-)
-
-set_target_properties(mainui_dll PROPERTIES
-    OUTPUT_NAME "menu"
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-)
-
-add_custom_command(TARGET mainui_dll POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${CLEANOUT_DIR}"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:mainui_dll>" "${CLEANOUT_DIR}"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_PDB_FILE:mainui_dll>" "${CLEANOUT_DIR}"
 )
 
 # NOTE: mp.dll (server DLL) will be built from regamedll sources
@@ -541,4 +493,4 @@ add_custom_command(TARGET mp_dll POST_BUILD
 
 # Add custom target to build all
 add_custom_target(all_targets ALL)
-add_dependencies(all_targets xash_engine xash_win32 client_dll mainui_dll mp_dll)
+add_dependencies(all_targets xash_engine xash_win32 client_dll mp_dll)

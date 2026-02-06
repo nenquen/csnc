@@ -3520,7 +3520,12 @@ void EXT_FUNC __API_HOOK(PM_Move)(struct playermove_s *ppmove, int server)
 	pmove = ppmove;
 
 #ifdef REGAMEDLL_API
-	pmoveplayer = UTIL_PlayerByIndex(pmove->player_index + 1)->CSPlayer();
+	// Check if player exists to prevent crash immediately after map load
+	auto* pEntity = UTIL_PlayerByIndex(pmove->player_index + 1);
+	if (!pEntity)
+		return;
+		
+	pmoveplayer = pEntity->CSPlayer();
 #endif
 
 	PM_PlayerMove((server != 0) ? TRUE : FALSE);
