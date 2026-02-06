@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 #ifdef XASH_SDL
 #include <SDL.h>
- #include <stdio.h>
+#include <stdio.h>
 
 #include "common.h"
 #include "keydefs.h"
@@ -27,6 +27,7 @@ GNU General Public License for more details.
 #include "joyinput.h"
 #include "sound.h"
 #include "gl_vidnt.h"
+#include "imgui_console.h"
 
 extern convar_t *vid_fullscreen;
 extern convar_t *snd_mute_losefocus;
@@ -75,13 +76,27 @@ static int SDLash_AddControllerMappingsFromFile( const char *path )
 /*
 =============
 SDLash_KeyEvent
-
 =============
 */
 static void SDLash_KeyEvent( SDL_KeyboardEvent key, int down )
 {
 	int keynum = key.keysym.scancode;
 	qboolean numLock = SDL_GetModState() & KMOD_NUM;
+
+	// If ImGui console is active, don't process keys for game
+	if( ImGuiConsole_IsActive() && down )
+	{
+		// Let ImGui handle the key, but still process console key and escape
+		if( keynum == SDL_SCANCODE_GRAVE || keynum == SDL_SCANCODE_ESCAPE )
+		{
+			// These will be processed normally
+		}
+		else
+		{
+			// Other keys are handled by ImGui
+			return;
+		}
+	}
 
 	if( SDL_IsTextInputActive() && down )
 	{
@@ -195,12 +210,16 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key, int down )
 /*
 =============
 SDLash_MouseEvent
-
 =============
 */
 static void SDLash_MouseEvent( SDL_MouseButtonEvent button )
 {
 	int down = button.type == SDL_MOUSEBUTTONDOWN ? 1 : 0;
+	
+	// If ImGui console is active, don't process mouse for game
+	if( ImGuiConsole_IsActive() )
+		return;
+	
 	if( in_mouseinitialized && !m_ignore->integer && button.which != SDL_TOUCH_MOUSEID )
 	{
 		Key_Event( K_MOUSE1 - 1 + button.button, down );
@@ -273,6 +292,12 @@ SDLash_EventFilter
 static void SDLash_EventFilter( SDL_Event *event )
 {
 	static int mdown;
+
+	// Pass events to ImGui first if console is active
+	if( ImGuiConsole_IsActive() )
+	{
+		ImGui_ProcessEvent( event );
+	}
 
 	if( wheelbutton )
 	{

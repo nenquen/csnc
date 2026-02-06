@@ -270,20 +270,8 @@ void Con_ToggleConsole_f( void )
 	if( cls.state != ca_active || cls.key_dest == key_menu )
 		return;
 
-	Con_ClearTyping();
-	Con_ClearNotify();
-
-	if( cls.key_dest == key_console )
-	{
-		if( Cvar_VariableInteger( "sv_background" ) || Cvar_VariableInteger( "cl_background" ))
-			UI_SetActiveMenu( true );
-		else UI_SetActiveMenu( false );
-	}
-	else
-	{
-		UI_SetActiveMenu( false );
-		Key_SetKeyDest( key_console );
-	}
+	// Use ImGui console instead of original console
+	ImGuiConsole_Toggle();
 }
 
 /*
@@ -1815,73 +1803,11 @@ Con_DrawConsole
 
 void Con_DrawConsole( void )
 {
-	// never draw console when changelevel in-progress
-	// mittorn: breaks console when downloading map, it may hang!
-	//if( cls.state != ca_disconnected && ( cls.changelevel || cls.changedemo ))
-	//	return;
-
-	// check for console width changes from a vid mode change
-	Con_CheckResize ();
-
-	if( cls.state == ca_connecting || cls.state == ca_connected )
-	{
-		if( !cl_allow_levelshots->integer )
-		{
-			if(( Cvar_VariableInteger( "cl_background" ) || Cvar_VariableInteger( "sv_background" )) && cls.key_dest != key_console )
-				con.displayFrac = con.finalFrac = 0.0f;
-			else con.displayFrac = con.finalFrac = con_maxfrac->value;
-		}
-		else
-		{
-			if( host.developer >= 4 )
-			{
-				con.displayFrac = con_halffrac->value;	// keep console open
-			}
-			else
-			{
-				con.finalFrac = 0.0f;
-				Con_RunConsole();
-
-				if( host.developer >= 2 )
-					Con_DrawNotify(); // draw notify lines
-			}
-		}
-	}
-
-	// if disconnected, render console full screen
-	switch( cls.state )
-	{
-	case ca_uninitialized:
-		break;
-	case ca_disconnected:
-		if( cls.key_dest != key_menu && host.developer )
-		{
-			Con_DrawSolidConsole( con_maxfrac->value, true );
-			Key_SetKeyDest( key_console );
-		}
-		break;
-	case ca_connected:
-	case ca_connecting:
-		// force to show console always for -dev 3 and higher 
-		if( con.displayFrac ) Con_DrawSolidConsole( con.displayFrac, true );
-		break;
-	case ca_active:
-	case ca_cinematic: 
-		if( Cvar_VariableInteger( "cl_background" ) || Cvar_VariableInteger( "sv_background" ))
-		{
-			if( cls.key_dest == key_console ) 
-				Con_DrawSolidConsole( con_maxfrac->value, true );
-		}
-		else
-		{
-			if( con.displayFrac )
-				Con_DrawSolidConsole( con.displayFrac, false );
-			else if( cls.state == ca_active && ( cls.key_dest == key_game || cls.key_dest == key_message ))
-				Con_DrawNotify(); // draw notify lines
-		}
-		break;
-	}
-
+	// Original console drawing disabled - using ImGui console instead
+	// Only draw debug notifications and FPS
+	Con_DrawDebug();
+	Con_DrawVersion();
+	
 	if( !Con_Visible( )) SCR_DrawFPS( 4 );
 }
 

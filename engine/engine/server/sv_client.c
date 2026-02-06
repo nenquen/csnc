@@ -3217,7 +3217,7 @@ void SV_EntFire_f( sv_client_t *cl )
 		}
 		else
 		{
-			SV_ClientPrintf( cl, PRINT_LOW, "Unknown command %s!\nUse \"ent_fire 0 help\" to list commands.\n", Cmd_Argv( 2 ) );
+			SV_ClientPrintf( cl, PRINT_LOW, "^1Unknown command %s!^7\nUse \"ent_fire 0 help\" to list commands.\n", Cmd_Argv( 2 ) );
 			return;
 		}
 		if( single )

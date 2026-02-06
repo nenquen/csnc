@@ -14,6 +14,9 @@ endif()
 # SDL2 source build
 add_subdirectory(engine/SDL2)
 
+# ImGui library
+add_subdirectory(engine/imgui)
+
 # Engine source files
 if(WIN32)
     file(GLOB_RECURSE ENGINE_SOURCES
@@ -50,6 +53,18 @@ file(GLOB_RECURSE MAINUI_ENGINE_SOURCES engine/mainui/*.cpp)
 
 # Create engine library
 add_library(xash_engine SHARED ${ENGINE_SOURCES} ${LOADER_SOURCES} ${VGUI_SOURCES})
+
+# Add imgui_console.cpp separately as C++ file
+target_sources(xash_engine PRIVATE 
+    ${CMAKE_CURRENT_SOURCE_DIR}/engine/engine/client/imgui_console.cpp
+)
+
+# Set specific include directories for imgui_console.cpp to get ImGui headers
+set_source_files_properties(
+    ${CMAKE_CURRENT_SOURCE_DIR}/engine/engine/client/imgui_console.cpp
+    PROPERTIES INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/engine/imgui;${CMAKE_CURRENT_SOURCE_DIR}/engine/imgui/backends"
+)
+
 target_include_directories(xash_engine PRIVATE
     engine/engine/common
     engine/engine
@@ -98,6 +113,7 @@ target_link_libraries(xash_engine PRIVATE
     shlwapi
     imm32
     version
+    imgui
 )
 
 if(WIN32)

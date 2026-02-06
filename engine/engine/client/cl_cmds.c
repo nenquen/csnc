@@ -128,7 +128,7 @@ void CL_PlayCDTrack_f( void )
 		Msg( "Volume is %f\n", Cvar_VariableValue( "MP3Volume" ));
 		return;
 	}
-	else Msg( "cd: unknown command %s\n", command );
+	else Msg( "^1cd: unknown command %s^7\n", command );
 }
 
 /*
@@ -173,7 +173,7 @@ void CL_MP3Command_f ( void )
 		S_StopBackgroundTrack();
 		return;
 	}
-	else Msg( "mp3: unknown command %s\n", pszCommand );
+	else Msg( "^1mp3: unknown command %s^7\n", pszCommand );
 }
 
 
