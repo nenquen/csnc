@@ -1,6 +1,12 @@
 #include "common.h"
 #include "client.h"
 #include "imgui_console.h"
+
+// Extern C for C linkage since input.h doesn't have it
+extern "C" {
+#include "input.h"
+}
+
 #include <GL/gl.h>
 #include "SDL.h"
 
@@ -167,6 +173,10 @@ void ImGui_Init(void)
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+    
+    // Disable ImGui's mouse cursor rendering - we use SDL's cursor
+    io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
+    io.MouseDrawCursor = false;
 
     // Apply GoldSrc console style
     SetupGoldSrcStyle();
@@ -212,6 +222,8 @@ void ImGui_NewFrame(void)
     if (!g_ImGuiConsole.initialized)
         return;
 
+    // Always run ImGui frame processing when initialized
+    // This maintains proper input state even when console is closed
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplSDL2_NewFrame();
     ImGui::NewFrame();
@@ -221,13 +233,14 @@ void ImGui_Render(void)
 {
     if (!g_ImGuiConsole.initialized)
         return;
+    
+    // Completely skip all ImGui processing when console is not active
+    if (!g_ImGuiConsole.consoleActive)
+        return;
 
     // Draw console if active
-    if (g_ImGuiConsole.consoleActive)
-    {
-        ImGuiConsole_Draw();
-    }
-
+    ImGuiConsole_Draw();
+    
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
@@ -237,6 +250,8 @@ void ImGui_ProcessEvent(void *event)
     if (!g_ImGuiConsole.initialized)
         return;
 
+    // Always pass events to ImGui backend to maintain proper input state
+    // ImGui will internally track keyboard/mouse state even if we don't use the events
     ImGui_ImplSDL2_ProcessEvent((SDL_Event*)event);
 }
 
@@ -255,6 +270,9 @@ void ImGuiConsole_Toggle(void)
         Msg("^2[^7CSNC^2]^7 Konsol acildi.\n");
         memset(g_ImGuiConsole.inputBuffer, 0, sizeof(g_ImGuiConsole.inputBuffer));
         
+        // Show mouse cursor for console interaction
+        SDL_ShowCursor(SDL_ENABLE);
+        
         // Set key destination to console for input
         if (cls.key_dest != key_menu)
             Key_SetKeyDest(key_console);
@@ -265,6 +283,12 @@ void ImGuiConsole_Toggle(void)
         // Return to game if not in menu
         if (cls.key_dest == key_console && cls.key_dest != key_menu)
             Key_SetKeyDest(key_game);
+        
+        // Re-activate mouse capture for camera control
+        IN_ActivateMouse(1);
+        
+        // Hide mouse cursor and return to game mode
+        SDL_ShowCursor(SDL_DISABLE);
     }
 }
 
@@ -475,7 +499,6 @@ static void RenderConsoleOutput()
     }
 
     char line[1024];
-    char cleanLine[1024];
     const char* ptr = g_ImGuiConsole.outputBuffer;
     int lineNum = 0;
 
@@ -490,29 +513,8 @@ static void RenderConsoleOutput()
         strncpy(line, ptr, lineLen);
         line[lineLen] = '\0';
 
-        // Strip color codes for copy functionality
-        StripColorCodes(line, cleanLine, sizeof(cleanLine));
-
-        // Make each line selectable with unique ID
-        ImGui::PushID(lineNum);
-        
-        // Use Selectable to allow selection and right-click
-        if (ImGui::Selectable(cleanLine, false))
-        {
-            // Clicked - can add single click behavior here if needed
-        }
-        
-        // Right-click context menu for copy
-        if (ImGui::BeginPopupContextItem("copy_menu"))
-        {
-            if (ImGui::MenuItem("Copy"))
-            {
-                ImGui::SetClipboardText(cleanLine);
-            }
-            ImGui::EndPopup();
-        }
-        
-        ImGui::PopID();
+        // Simple colored text rendering without interactive elements
+        RenderColoredText(line);
 
         // Move to next line
         ptr += lineLen;
@@ -544,12 +546,24 @@ void ImGuiConsole_Draw(void)
 
     if (!ImGui::Begin("Console", p_open, window_flags))
     {
-        if (was_open && !g_ImGuiConsole.consoleActive)
-        {
-            Msg("^2[^7CSNC^2]^7 Konsol kapandi.\n");
-            if (cls.key_dest == key_console && cls.key_dest != key_menu)
-                Key_SetKeyDest(key_game);
-        }
+        ImGui::End();
+        return;
+    }
+
+    // Check if X button was clicked to close console
+    if (was_open && !*p_open)
+    {
+        // X button clicked - close console properly
+        Msg("^2[^7CSNC^2]^7 Konsol kapandi.\n");
+        if (cls.key_dest == key_console && cls.key_dest != key_menu)
+            Key_SetKeyDest(key_game);
+        
+        // Re-activate mouse capture for camera control
+        IN_ActivateMouse(1);
+        
+        // Hide mouse cursor and return to game
+        SDL_ShowCursor(SDL_DISABLE);
+        
         ImGui::End();
         return;
     }
