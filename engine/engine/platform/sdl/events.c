@@ -27,6 +27,7 @@ GNU General Public License for more details.
 #include "joyinput.h"
 #include "sound.h"
 #include "gl_vidnt.h"
+#include "imgui_bridge.h"
 
 extern convar_t *vid_fullscreen;
 extern convar_t *snd_mute_losefocus;
@@ -273,6 +274,9 @@ SDLash_EventFilter
 static void SDLash_EventFilter( SDL_Event *event )
 {
 	static int mdown;
+
+	if( ImGuiBridge_IsEnabled() )
+		ImGuiBridge_ProcessEvent( event );
 
 	if( wheelbutton )
 	{

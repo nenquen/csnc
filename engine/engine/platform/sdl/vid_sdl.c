@@ -23,6 +23,8 @@ GNU General Public License for more details.
 #include <SDL.h>
 #include <SDL_syswm.h>
 
+#include "imgui_bridge.h"
+
 typedef enum
 {
 	rserr_ok,
@@ -294,6 +296,8 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 			return false;		
 	}
 
+	ImGuiBridge_Init( host.hWnd );
+
 	SDL_GL_GetDrawableSize( host.hWnd, &width, &height );
 	R_ChangeDisplaySettingsFast( width, height );
 
@@ -302,6 +306,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 
 void VID_DestroyWindow( void )
 {
+	ImGuiBridge_Shutdown();
 	GL_DeleteContext();
 
 	VID_RestoreScreenResolution();

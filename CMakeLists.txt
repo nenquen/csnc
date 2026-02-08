@@ -14,6 +14,27 @@ endif()
 # SDL2 source build
 add_subdirectory(engine/SDL2)
 
+# Dear ImGui (submodule)
+add_library(imgui STATIC
+    engine/3rdparty/imgui/imgui.cpp
+    engine/3rdparty/imgui/imgui_draw.cpp
+    engine/3rdparty/imgui/imgui_tables.cpp
+    engine/3rdparty/imgui/imgui_widgets.cpp
+    engine/3rdparty/imgui/backends/imgui_impl_sdl2.cpp
+    engine/3rdparty/imgui/backends/imgui_impl_opengl2.cpp
+)
+target_include_directories(imgui PUBLIC
+    engine/3rdparty/imgui
+    engine/3rdparty/imgui/backends
+    engine/SDL2/include
+)
+target_link_libraries(imgui PUBLIC
+    SDL2
+)
+if(WIN32)
+    target_link_libraries(imgui PUBLIC opengl32)
+endif()
+
 # Engine source files
 if(WIN32)
     file(GLOB_RECURSE ENGINE_SOURCES
@@ -50,6 +71,9 @@ file(GLOB_RECURSE MAINUI_ENGINE_SOURCES engine/mainui/*.cpp)
 
 # Create engine library
 add_library(xash_engine SHARED ${ENGINE_SOURCES} ${LOADER_SOURCES} ${VGUI_SOURCES})
+target_sources(xash_engine PRIVATE
+    engine/engine/client/imgui_bridge.cpp
+)
 target_include_directories(xash_engine PRIVATE
     engine/engine/common
     engine/engine
@@ -106,6 +130,8 @@ if(WIN32)
     target_link_libraries(xash_engine PRIVATE SDL2)
 endif()
 
+target_link_libraries(xash_engine PRIVATE imgui)
+
 set_target_properties(xash_engine PROPERTIES
     OUTPUT_NAME "xash_sdl"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
@@ -116,7 +142,6 @@ set(CLEANOUT_DIR "${CMAKE_BINARY_DIR}/cleanout")
 add_custom_command(TARGET xash_engine POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CLEANOUT_DIR}"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:xash_engine>" "${CLEANOUT_DIR}"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_PDB_FILE:xash_engine>" "${CLEANOUT_DIR}"
 )
 
 # Copy SDL2.dll to output directories after build (SDL2 is built in subdirectory)
@@ -142,7 +167,6 @@ set_target_properties(xash_win32 PROPERTIES
 add_custom_command(TARGET xash_win32 POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CLEANOUT_DIR}"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:xash_win32>" "${CLEANOUT_DIR}"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_PDB_FILE:xash_win32>" "${CLEANOUT_DIR}"
 )
 
 # VGUI support DLL (vgui_support.dll)
@@ -175,7 +199,6 @@ if(BUILD_VGUI_SUPPORT_DLL)
         add_custom_command(TARGET vgui_support_dll POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E make_directory "${CLEANOUT_DIR}"
             COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:vgui_support_dll>" "${CLEANOUT_DIR}"
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_PDB_FILE:vgui_support_dll>" "${CLEANOUT_DIR}"
         )
     else()
         message(WARNING "BUILD_VGUI_SUPPORT_DLL is ON but vgui.lib was not found at: ${VGUI_LIB_PATH}. Skipping vgui_support.dll.")
@@ -254,7 +277,6 @@ add_custom_command(TARGET client_dll POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CLEANOUT_DIR}"
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CLEANOUT_DIR}/cl_dlls"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:client_dll>" "${CLEANOUT_DIR}/cl_dlls"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_PDB_FILE:client_dll>" "${CLEANOUT_DIR}/cl_dlls"
 )
 
 # MainUI DLL (client/mainui)
@@ -304,7 +326,6 @@ set_target_properties(mainui_dll PROPERTIES
 add_custom_command(TARGET mainui_dll POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CLEANOUT_DIR}"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:mainui_dll>" "${CLEANOUT_DIR}"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_PDB_FILE:mainui_dll>" "${CLEANOUT_DIR}"
 )
 
 # NOTE: mp.dll (server DLL) will be built from regamedll sources
@@ -520,7 +541,6 @@ add_custom_command(TARGET mp_dll POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CLEANOUT_DIR}"
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CLEANOUT_DIR}/dlls"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:mp_dll>" "${CLEANOUT_DIR}/dlls"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE_DIR:mp_dll>/mp.pdb" "${CLEANOUT_DIR}/dlls" 2>NUL || echo "PDB not found, skipping"
 )
 
 # Add custom target to build all
