@@ -639,10 +639,7 @@ void GAME_EXPORT Key_Event( int key, qboolean down )
 			return;
 		case key_console:
 			if( cls.state == ca_active && !cl.background )
-			{
-				// Close ImGui console
-				ImGuiConsole_Toggle();
-			}
+				Key_SetKeyDest( key_game );
 			else UI_SetActiveMenu( true );
 			return;
 		case key_menu:

@@ -147,7 +147,11 @@ void CMenuMain::_Init( void )
 	console.SetNameAndStatus( L( "GameUI_Console" ), L( "Show console" ) );
 	console.iFlags |= QMF_NOTIFY;
 	console.SetPicture( PC_CONSOLE );
-	console.onReleased.SetCommand( FALSE, "toggleconsole\n" );
+	SET_EVENT_MULTI( console.onReleased,
+	{
+		UI_SetActiveMenu( FALSE );
+		EngFuncs::KEY_SetDest( KEY_CONSOLE );
+	});
 
 	resumeGame.SetNameAndStatus( L( "GameUI_GameMenu_ResumeGame" ), L( "StringsList_188" ) );
 	resumeGame.SetPicture( PC_RESUME_GAME );

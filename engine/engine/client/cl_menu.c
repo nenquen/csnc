@@ -23,9 +23,6 @@ GNU General Public License for more details.
 #include "input.h"
 #include "server.h" // !!svgame.hInstance
 #include "gl_vidnt.h"
-#include "imgui_mainmenu.h"
-#include "imgui_console.h"
-#include "SDL.h"
 
 static MENUAPI	GetMenuAPI;
 static ADDTOUCHBUTTONTOLIST pfnAddTouchButtonToList;
@@ -35,20 +32,21 @@ menu_static_t	menu;
 
 void UI_UpdateMenu( float realtime )
 {
-	// MainUI no longer used - ImGui menu handles its own rendering
-	// Just update userinfo if needed
+	if( !menu.hInstance ) return;
+	menu.dllFuncs.pfnRedraw( realtime );
 	UI_UpdateUserinfo();
 }
 
 void UI_KeyEvent( int key, qboolean down )
 {
-	// MainUI no longer used - ImGui handles its own input
-	// Input is processed through ImGui_ProcessEvent in the event loop
+	if( !menu.hInstance ) return;
+	menu.dllFuncs.pfnKeyEvent( key, down );
 }
 
 void UI_MouseMove( int x, int y )
 {
-	// MainUI no longer used - ImGui handles its own mouse input
+	if( !menu.hInstance ) return;
+	menu.dllFuncs.pfnMouseMove( x, y );
 }
 
 void UI_SetActiveMenu( qboolean fActive )
@@ -64,27 +62,16 @@ void UI_SetActiveMenu( qboolean fActive )
 		}
 	}
 
-	// Use ImGui menu instead of MainUI
-	if( fActive )
+
+	if( !menu.hInstance )
 	{
-		// Toggle ImGui main menu on
-		// If ImGui not ready, delay via command buffer
-		if( ImGui_IsInitialized() )
-		{
-			ImGui_MainMenu_Toggle();
-		}
-		else
-		{
-			// Delay menu opening until ImGui is ready
-			Cbuf_AddText( "menu_imgui\n" );
-		}
+		if( !fActive )
+			Key_SetKeyDest( key_game );
+		return;
 	}
-	else
-	{
-		// Ensure menu is closed
-		if( ImGui_MainMenu_IsActive() )
-			ImGui_MainMenu_Toggle();
-	}
+
+	menu.drawLogo = fActive;
+	menu.dllFuncs.pfnSetActiveMenu( fActive );
 
 	if( !fActive )
 	{
@@ -96,48 +83,50 @@ void UI_SetActiveMenu( qboolean fActive )
 
 void UI_AddServerToList( netadr_t adr, const char *info )
 {
-	// MainUI no longer used - ImGui menu handles this differently
-	// Server list is managed through ImGui multiplayer menu
+	if( !menu.hInstance ) return;
+	menu.dllFuncs.pfnAddServerToList( adr, info );
 }
 
 void UI_GetCursorPos( int *pos_x, int *pos_y )
 {
-	// MainUI no longer used - SDL handles cursor position
-	*pos_x = *pos_y = 0;
+	if( !menu.hInstance ) return;
+	menu.dllFuncs.pfnGetCursorPos( pos_x, pos_y );
 }
 
 void UI_SetCursorPos( int pos_x, int pos_y )
 {
-	// MainUI no longer used - SDL handles cursor position
+	if( !menu.hInstance ) return;
+	menu.dllFuncs.pfnSetCursorPos( pos_x, pos_y );
 }
 
 void UI_ShowCursor( qboolean show )
 {
-	// MainUI no longer used - ImGui/SDL handles cursor
-	SDL_ShowCursor( show ? SDL_ENABLE : SDL_DISABLE );
+	if( !menu.hInstance ) return;
+	menu.dllFuncs.pfnShowCursor( show );
 }
 
 qboolean UI_CreditsActive( void )
 {
-	// MainUI no longer used - ImGui handles credits differently
-	return false;
+	if( !menu.hInstance ) return 0;
+	return menu.dllFuncs.pfnCreditsActive();
 }
 
 void UI_CharEvent( int key )
 {
-	// MainUI no longer used - ImGui handles text input
+	if( !menu.hInstance ) return;
+	menu.dllFuncs.pfnCharEvent( key );
 }
 
 qboolean UI_MouseInRect( void )
 {
-	// MainUI no longer used - ImGui handles mouse detection
-	return true;
+	if( !menu.hInstance ) return 1;
+	return menu.dllFuncs.pfnMouseInRect();
 }
 
 qboolean UI_IsVisible( void )
 {
-	// Check if ImGui main menu is active
-	return ImGui_MainMenu_IsActive();
+	if( !menu.hInstance ) return 0;
+	return menu.dllFuncs.pfnIsVisible();
 }
 
 static void UI_DrawLogo( const char *filename, float x, float y, float width, float height )
@@ -240,8 +229,8 @@ static void UI_UpdateUserinfo( void )
 	
 void Host_Credits( void )
 {
-	// MainUI no longer used - credits handled differently
-	// Could implement in ImGui if needed
+	if( !menu.hInstance ) return;
+	menu.dllFuncs.pfnFinalCredits();
 }
 
 static void UI_ConvertGameInfo( GAMEINFO *out, gameinfo_t *in )
@@ -1065,32 +1054,94 @@ static ui_textfuncs_t gTextfuncs =
 
 void UI_UnloadProgs( void )
 {
-	// MainUI unloading is no longer needed - we use ImGui menu
-	// Free globals if allocated
-	if( menu.globals && menu.mempool )
-	{
-		Mem_Free( menu.globals );
-	}
-	// Clear the menu state
+	if( !menu.hInstance ) return;
+
+	// deinitialize game
+	menu.dllFuncs.pfnShutdown();
+
+	Com_FreeLibrary( menu.hInstance );
+	Mem_FreePool( &menu.mempool );
 	Q_memset( &menu, 0, sizeof( menu ));
 }
 
 qboolean UI_LoadProgs( void )
 {
-	// MainUI (menu.dll) is disabled - using ImGui menu instead
-	// Initialize menu globals for ImGui compatibility
+	static ui_enginefuncs_t	gpEngfuncs;
+	static ui_textfuncs_t	gpTextfuncs;
+	static ui_globalvars_t	gpGlobals;
+	int			i;
+        UITEXTAPI GiveTextApi;
+	if( menu.hInstance ) UI_UnloadProgs();
+
+	// setup globals
+	menu.globals = &gpGlobals;
+#ifdef XASH_INTERNAL_GAMELIBS
+	if(!( menu.hInstance = Com_LoadLibrary( "menu", false )))
+		return false;
+#else
+	if(!( menu.hInstance = Com_LoadLibrary( va( "%s/" MENUDLL, GI->dll_path ), false )))
+	{
+		FS_AllowDirectPaths( true );
+
+		if(!( menu.hInstance = Com_LoadLibrary( "../" MENUDLL, false ))
+				&& !( menu.hInstance = Com_LoadLibrary( MENUDLL, false )))
+
+		{
+			FS_AllowDirectPaths( false );
+			return false;
+		}
+	}
+#endif
+	FS_AllowDirectPaths( false );
+	if(!( GetMenuAPI = (MENUAPI)Com_GetProcAddress( menu.hInstance, "GetMenuAPI" )))
+	{
+		Com_FreeLibrary( menu.hInstance );
+		MsgDev( D_NOTE, "UI_LoadProgs: can't init menu API\n" );
+		menu.hInstance = NULL;
+		return false;
+	}
+
+	// make local copy of engfuncs to prevent overwrite it with user dll
+	Q_memcpy( &gpEngfuncs, &gEngfuncs, sizeof( gpEngfuncs ));
+
 	menu.mempool = Mem_AllocPool( "Menu Pool" );
-	
-	// Allocate and initialize globals (needed for VGui_Startup in cl_game.c)
-	menu.globals = Mem_Alloc( menu.mempool, sizeof( ui_globalvars_t ) );
-	menu.globals->scrWidth = scr_width->integer;
-	menu.globals->scrHeight = scr_height->integer;
+
+	if( !GetMenuAPI( &menu.dllFuncs, &gpEngfuncs, menu.globals ))
+	{
+		Com_FreeLibrary( menu.hInstance );
+		MsgDev( D_NOTE, "UI_LoadProgs: can't init menu API\n" );
+		Mem_FreePool( &menu.mempool );
+		menu.hInstance = NULL;
+		return false;
+	}
+
+	menu.use_text_api = false;
+
+	if( ( GiveTextApi = (UITEXTAPI)Com_GetProcAddress( menu.hInstance, "GiveTextAPI" ) ) )
+	{
+		// make local copy of engfuncs to prevent overwrite it with user dll
+		Q_memcpy( &gpTextfuncs, &gTextfuncs, sizeof( gpTextfuncs ));
+		if( GiveTextApi( &gpTextfuncs ) )
+			menu.use_text_api = true;
+	}
+
+	pfnAddTouchButtonToList = (ADDTOUCHBUTTONTOLIST)Com_GetProcAddress( menu.hInstance, "AddTouchButtonToList" );
+
+	// setup gameinfo
+	for( i = 0; i < SI.numgames; i++ )
+	{
+		menu.modsInfo[i] = Mem_Alloc( menu.mempool, sizeof( GAMEINFO ));
+		UI_ConvertGameInfo( menu.modsInfo[i], SI.games[i] );
+	}
+
+	UI_ConvertGameInfo( &menu.gameInfo, SI.GameInfo ); // current gameinfo
+
+	// setup globals
 	menu.globals->developer = host.developer;
-	
-	// Mark as "loaded" but use ImGui
-	menu.hInstance = (void*)1; // Non-null to indicate "loaded"
-	
-	MsgDev( D_INFO, "UI_LoadProgs: Using ImGui menu system (MainUI disabled)\n" );
+
+	// initialize game
+	menu.dllFuncs.pfnInit();
+
 	return true;
 }
 #endif // XASH_DEDICATED

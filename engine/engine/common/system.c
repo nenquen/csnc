@@ -786,9 +786,6 @@ print into window console
 */
 void Sys_Print( const char *pMsg )
 {
-	// Always print to ImGui console output buffer (even when closed)
-	ImGuiConsole_AddToOutput( pMsg );
-
 	if( !Host_IsDedicated() )
 		Con_Print( pMsg );
 

@@ -371,28 +371,6 @@ int DLLEXPORT HUD_MobilityInterface( mobile_engfuncs_t *mobileapi )
 
 /*
 ========================
-HUD_ImGuiDraw
-
-Called by engine every frame when console is active
-Client can draw ImGui UI here (menus, HUD, debug, etc.)
-========================
-*/
-void DLLEXPORT HUD_ImGuiDraw( void )
-{
-	// Client ImGui drawing happens here
-	// This is called by the engine when console is active
-	// You can draw menus, debug windows, custom HUD elements, etc.
-	
-	// Example (uncomment to test):
-	// ImGui::Begin("Client Menu");
-	// ImGui::Text("Hello from Counter-Strike Client!");
-	// if (ImGui::Button("Say Hello"))
-	//     gEngfuncs.pfnClientCmd("say Hello from ImGui!\n");
-	// ImGui::End();
-}
-
-/*
-========================
 HUD_PostRunCmd
 ========================
 */

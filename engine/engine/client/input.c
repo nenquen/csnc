@@ -509,9 +509,6 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 		SDL_SetWindowGrab(host.hWnd, SDL_FALSE);
 		if( clgame.dllFuncs.pfnLookEvent )
 			SDL_SetRelativeMouseMode( SDL_FALSE );
-		
-		// Always show cursor in menu/console
-		SDL_ShowCursor( SDL_TRUE );
 #endif
 #ifdef __ANDROID__
 		Android_ShowMouse( true );
@@ -522,10 +519,6 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 	}
 	else
 	{
-#ifdef XASH_SDL
-		// Hide cursor in game
-		SDL_ShowCursor( SDL_FALSE );
-#endif
 #ifdef __ANDROID__
 		Android_ShowMouse( false );
 #endif

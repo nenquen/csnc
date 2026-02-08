@@ -18,7 +18,7 @@ GNU General Public License for more details.
 #include "common.h"
 #include "client.h"
 #include "gl_local.h"
-#include "imgui_console.h"
+#include "mathlib.h"
 #include "library.h"
 #include "beamdef.h"
 #include "particledef.h"
@@ -1359,10 +1359,6 @@ void R_EndFrame( void )
 		R_Set2DMode( false );
 
 #ifdef XASH_SDL
-	// Render ImGui before swapping buffers
-	ImGui_NewFrame();
-	ImGui_Render();
-
 	SDL_GL_SwapWindow( host.hWnd );
 #elif defined __ANDROID__ // For direct android backend
 	Android_SwapBuffers();
