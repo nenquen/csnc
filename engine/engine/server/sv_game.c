@@ -5213,6 +5213,9 @@ qboolean SV_LoadProgs( const char *name )
 	GiveNewDllFuncs = (NEW_DLL_FUNCTIONS_FN)Com_GetProcAddress( svgame.hInstance, "GetNewDLLFunctions" );
 	if( !GetEntityAPI && !GetEntityAPI2 )
 	{
+		char errorstring[256];
+		Q_snprintf( errorstring, sizeof( errorstring ), "SV_LoadProgs: missing export GetEntityAPI/GetEntityAPI2 in %s", name );
+		Com_PushLibraryError( errorstring );
 		Com_FreeLibrary( svgame.hInstance );
          		MsgDev( D_NOTE, "SV_LoadProgs: failed to get address of GetEntityAPI proc\n" );
 		svgame.hInstance = NULL;
@@ -5238,6 +5241,9 @@ qboolean SV_LoadProgs( const char *name )
 		
 		if( !GiveFnptrsToDll )
 		{
+			char errorstring[256];
+			Q_snprintf( errorstring, sizeof( errorstring ), "SV_LoadProgs: missing export GiveFnptrsToDll in %s", name );
+			Com_PushLibraryError( errorstring );
 			Com_FreeLibrary( svgame.hInstance );
 			MsgDev( D_NOTE, "SV_LoadProgs: failed to get address of GiveFnptrsToDll proc\n" );
 			svgame.hInstance = NULL;

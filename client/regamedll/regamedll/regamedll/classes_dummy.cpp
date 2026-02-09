@@ -103,5 +103,8 @@ public:
 	virtual BOOL UseDecrement() { return FALSE; }
 };
 
-volatile CDummyWeaponClass *g_pDummyWeaponClass = &CDummyWeaponClass();
-volatile CDummyWeaponClassExtra *g_pCDummyWeaponClassExtra = &CDummyWeaponClassExtra();
+static CDummyWeaponClass g_DummyWeaponClass;
+static CDummyWeaponClassExtra g_DummyWeaponClassExtra;
+
+volatile CDummyWeaponClass *g_pDummyWeaponClass = &g_DummyWeaponClass;
+volatile CDummyWeaponClassExtra *g_pCDummyWeaponClassExtra = &g_DummyWeaponClassExtra;

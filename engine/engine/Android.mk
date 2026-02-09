@@ -75,6 +75,7 @@ LOCAL_SRC_FILES := \
            client/gl_rstrobe.c \
            client/gl_sprite.c \
            client/gl_studio.c \
+           client/imgui_bridge_android_stub.c \
            client/vid_common.c \
            client/gl_warp.c \
            client/joyinput.c \

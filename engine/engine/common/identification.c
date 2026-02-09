@@ -270,6 +270,9 @@ qboolean ID_ValidateNetDevice( const char *dev )
 
 int ID_ProcessNetDevices( bloomfilter_t *value )
 {
+	#ifdef __ANDROID__
+	return 0;
+	#else
 	const char *prefix = "/sys/class/net";
 	DIR *dir;
 	struct dirent *entry;
@@ -290,10 +293,14 @@ int ID_ProcessNetDevices( bloomfilter_t *value )
 	}
 	closedir( dir );
 	return count;
+	#endif
 }
 
 int ID_CheckNetDevices( bloomfilter_t value )
 {
+	#ifdef __ANDROID__
+	return 0;
+	#else
 	const char *prefix = "/sys/class/net";
 
 	DIR *dir;
@@ -318,6 +325,7 @@ int ID_CheckNetDevices( bloomfilter_t value )
 
 	closedir( dir );
 	return count;
+	#endif
 }
 
 void ID_TestCPUInfo_f( void )

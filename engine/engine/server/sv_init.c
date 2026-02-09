@@ -642,6 +642,7 @@ void SV_InitGame( void )
 			Com_ResetLibraryError();
 			if( !SV_LoadProgs( SI.gamedll ))
 			{
+				MsgDev( D_ERROR, "SV_InitGame: can't initialize \"%s\": %s\n", SI.gamedll, Com_GetLibraryError() );
 				if( CL_IsInMenu() )
 					Sys_Warn( "SV_InitGame: can't initialize \"%s\":\n%s", SI.gamedll, Com_GetLibraryError() );
 				else
