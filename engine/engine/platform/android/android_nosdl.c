@@ -162,6 +162,8 @@ static struct {
 	float mousex, mousey;
 } events = { PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER };
 
+static volatile int g_android_framemutex_held_by_ui;
+
 static struct jnimethods_s
 {
 	jclass actcls;
@@ -218,6 +220,19 @@ Caller must do Android_PushEvent() to unlock queue after setting parameters.
 event_t *Android_AllocEvent()
 {
 	Android_Lock();
+	if( events.count == ANDROID_MAX_EVENTS )
+	{
+		events.count--; //override last event
+		__android_log_print( ANDROID_LOG_ERROR, "Xash", "Too many events!!!" );
+	}
+	return &events.queue[ events.count++ ];
+}
+
+static event_t *Android_AllocEventNonBlocking( void )
+{
+	if( pthread_mutex_trylock( &events.mutex ) != 0 )
+		return NULL;
+
 	if( events.count == ANDROID_MAX_EVENTS )
 	{
 		events.count--; //override last event
@@ -507,7 +522,9 @@ DECLARE_JNI_INTERFACE( void, onNativeResize, jint width, jint height )
 	jni.width=width, jni.height=height;
 
 	// alloc update event to change screen size
-	event = Android_AllocEvent();
+	event = Android_AllocEventNonBlocking();
+	if( !event )
+		return;
 	event->type = event_resize;
 	Android_PushEvent();
 }
@@ -518,7 +535,9 @@ DECLARE_JNI_INTERFACE_VOID( void, nativeQuit )
 
 DECLARE_JNI_INTERFACE( void, nativeSetPause, jint pause )
 {
-	event_t *event = Android_AllocEvent();
+	event_t *event = Android_AllocEventNonBlocking();
+	if( !event )
+		return;
 	event->type = event_set_pause;
 	event->arg = pause;
 	Android_PushEvent();
@@ -528,9 +547,20 @@ DECLARE_JNI_INTERFACE( void, nativeSetPause, jint pause )
 	if( android_sleep && android_sleep->value )
 	{
 		if( pause )
-			pthread_mutex_lock( &events.framemutex );
+		{
+			// Never block UI thread here. If engine still owns framemutex,
+			// blocking would cause an ANR during surfaceDestroyed/onStop.
+			if( pthread_mutex_trylock( &events.framemutex ) == 0 )
+				g_android_framemutex_held_by_ui = 1;
+		}
 		else
-			pthread_mutex_unlock( &events.framemutex );
+		{
+			if( g_android_framemutex_held_by_ui )
+			{
+				pthread_mutex_unlock( &events.framemutex );
+				g_android_framemutex_held_by_ui = 0;
+			}
+		}
 	}
 }
 
@@ -538,7 +568,13 @@ DECLARE_JNI_INTERFACE_VOID( void, nativeUnPause )
 {
 	// UnPause engine before sending critical events
 	if( android_sleep && android_sleep->integer )
+	{
+		if( g_android_framemutex_held_by_ui )
+		{
 			pthread_mutex_unlock( &events.framemutex );
+			g_android_framemutex_held_by_ui = 0;
+		}
+	}
 }
 
 DECLARE_JNI_INTERFACE( void, nativeKey, jint down, jint code )
@@ -547,30 +583,38 @@ DECLARE_JNI_INTERFACE( void, nativeKey, jint down, jint code )
 
 	if( code < 0 )
 	{
-		event = Android_AllocEvent();
+		event = Android_AllocEventNonBlocking();
+		if( !event )
+			return;
 		event->arg = (-code) & 255;
 		event->type = down?event_key_down:event_key_up;
 		Android_PushEvent();
+		return;
 	}
-	else
-	{
-		if( code >= ( sizeof( s_android_scantokey ) / sizeof( s_android_scantokey[0] ) ) )
-			return;
+	if( code >= ( sizeof( s_android_scantokey ) / sizeof( s_android_scantokey[0] ) ) )
+		return;
 
-		event = Android_AllocEvent();
-		event->type = down?event_key_down:event_key_up;
-		event->arg = s_android_scantokey[code];
-		Android_PushEvent();
-	}
+	event = Android_AllocEventNonBlocking();
+	if( !event )
+		return;
+	event->type = down?event_key_down:event_key_up;
+	event->arg = s_android_scantokey[code];
+	Android_PushEvent();
 }
 
 DECLARE_JNI_INTERFACE( void, nativeString, jobject string )
 {
 	char* str = (char *) (*env)->GetStringUTFChars(env, string, NULL);
+	qboolean locked = false;
 
-	Android_Lock();
-	strncat( events.inputtext, str, 256 );
-	Android_Unlock();
+	if( pthread_mutex_trylock( &events.mutex ) == 0 )
+		locked = true;
+
+	if( locked )
+	{
+		strncat( events.inputtext, str, 256 );
+		Android_Unlock();
+	}
 
 	(*env)->ReleaseStringUTFChars(env, string, str);
 }
@@ -619,7 +663,9 @@ DECLARE_JNI_INTERFACE( void, nativeTouch, jint finger, jint action, jfloat x, jf
 	else if( action == 1 )
 		events.fingers[finger].down = false;
 
-	event = Android_AllocEvent();
+	event = Android_AllocEventNonBlocking();
+	if( !event )
+		return;
 	event->arg = finger;
 	event->type = action;
 	event->touch.x = x;
@@ -631,7 +677,9 @@ DECLARE_JNI_INTERFACE( void, nativeTouch, jint finger, jint action, jfloat x, jf
 
 DECLARE_JNI_INTERFACE( void, nativeBall, jint id, jbyte ball, jshort xrel, jshort yrel )
 {
-	event_t *event = Android_AllocEvent();
+	event_t *event = Android_AllocEventNonBlocking();
+	if( !event )
+		return;
 
 	event->type = event_joyball;
 	event->arg = id;
@@ -641,19 +689,21 @@ DECLARE_JNI_INTERFACE( void, nativeBall, jint id, jbyte ball, jshort xrel, jshor
 	Android_PushEvent();
 }
 
-DECLARE_JNI_INTERFACE( void, nativeHat, jint id, jbyte hat, jbyte key, jboolean down )
+DECLARE_JNI_INTERFACE( void, nativeHat, jint id, jbyte hat, jbyte keycode, jboolean down )
 {
 	static byte engineKeys;
 
-	if( !key )
+	if( !keycode )
 		engineKeys = 0; // centered;
 
 	if( down )
-		engineKeys |= key;
+		engineKeys |= keycode;
 	else
-		engineKeys &= ~key;
+		engineKeys &= ~keycode;
 
-	event_t *event = Android_AllocEvent();
+	event_t *event = Android_AllocEventNonBlocking();
+	if( !event )
+		return;
 	event->type = event_joyhat;
 	event->arg = id;
 	event->hat.hat = hat;
@@ -663,7 +713,9 @@ DECLARE_JNI_INTERFACE( void, nativeHat, jint id, jbyte hat, jbyte key, jboolean 
 
 DECLARE_JNI_INTERFACE( void, nativeAxis, jint id, jbyte axis, jshort val )
 {
-	event_t *event = Android_AllocEvent();
+	event_t *event = Android_AllocEventNonBlocking();
+	if( !event )
+		return;
 	event->type = event_joyaxis;
 	event->arg = id;
 	event->axis.axis = axis;
@@ -675,7 +727,9 @@ DECLARE_JNI_INTERFACE( void, nativeAxis, jint id, jbyte axis, jshort val )
 
 DECLARE_JNI_INTERFACE( void, nativeJoyButton, jint id, jbyte button, jboolean down )
 {
-	event_t *event = Android_AllocEvent();
+	event_t *event = Android_AllocEventNonBlocking();
+	if( !event )
+		return;
 	event->type = event_joybutton;
 	event->arg = id;
 	event->button.button = button;
@@ -686,7 +740,9 @@ DECLARE_JNI_INTERFACE( void, nativeJoyButton, jint id, jbyte button, jboolean do
 
 DECLARE_JNI_INTERFACE( void, nativeJoyAdd, jint id )
 {
-	event_t *event = Android_AllocEvent();
+	event_t *event = Android_AllocEventNonBlocking();
+	if( !event )
+		return;
 	event->type = event_joyadd;
 	event->arg = id;
 	Android_PushEvent();
@@ -694,7 +750,9 @@ DECLARE_JNI_INTERFACE( void, nativeJoyAdd, jint id )
 
 DECLARE_JNI_INTERFACE( void, nativeJoyDel, jint id )
 {
-	event_t *event = Android_AllocEvent();
+	event_t *event = Android_AllocEventNonBlocking();
+	if( !event )
+		return;
 	event->type = event_joyremove;
 	event->arg = id;
 	Android_PushEvent();
@@ -702,28 +760,36 @@ DECLARE_JNI_INTERFACE( void, nativeJoyDel, jint id )
 
 DECLARE_JNI_INTERFACE_VOID( void, nativeOnResume )
 {
-	event_t *event = Android_AllocEvent();
+	event_t *event = Android_AllocEventNonBlocking();
+	if( !event )
+		return;
 	event->type = event_onresume;
 	Android_PushEvent();
 }
 
 DECLARE_JNI_INTERFACE_VOID( void, nativeOnFocusChange )
 {
-	event_t *event = Android_AllocEvent();
+	event_t *event = Android_AllocEventNonBlocking();
+	if( !event )
+		return;
 	event->type = event_onfocuschange;
 	Android_PushEvent();
 }
 
 DECLARE_JNI_INTERFACE_VOID( void, nativeOnPause )
 {
-	event_t *event = Android_AllocEvent();
+	event_t *event = Android_AllocEventNonBlocking();
+	if( !event )
+		return;
 	event->type = event_onpause;
 	Android_PushEvent();
 }
 
 DECLARE_JNI_INTERFACE_VOID( void, nativeOnDestroy )
 {
-	event_t *event = Android_AllocEvent();
+	event_t *event = Android_AllocEventNonBlocking();
+	if( !event )
+		return;
 	event->type = event_ondestroy;
 	Android_PushEvent();
 }

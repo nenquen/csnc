@@ -21,6 +21,10 @@ GNU General Public License for more details.
 #include "qfont.h"
 #include "server.h" // Log_Printf( , ... )
 
+#define STBTT_STATIC
+#define STB_TRUETYPE_IMPLEMENTATION
+#include "../../3rdparty/imgui/imstb_truetype.h"
+
 convar_t	*con_notifytime;
 convar_t	*scr_conspeed;
 convar_t	*con_fontsize;
@@ -430,10 +434,131 @@ static void Con_LoadConsoleFont( int fontNumber, cl_font_t *font )
 	fs_offset_t	length;
 	qfont_t	*src;
 	uint32_t crc = 0;
+	int baked_width = 512;
+	int baked_height = 512;
 
 	ASSERT( font != NULL );
 
 	if( font->valid ) return; // already loaded
+	if( FS_FileExists( "resource/font/font.ttf", false ))
+	{
+		byte *ttf_data = FS_LoadFile( "resource/font/font.ttf", &length, false );
+		if( ttf_data && length > 0 )
+		{
+			stbtt_fontinfo info;
+			const float pixel_height = 16.0f;
+			float scale;
+			int ascent = 0, descent = 0, lineGap = 0;
+			int max_advance = 0;
+			int cell_w, cell_h;
+			int atlas_w, atlas_h;
+			int i;
+			unsigned char *alpha = NULL;
+
+			Q_memset( &info, 0, sizeof( info ));
+			if( !stbtt_InitFont( &info, ttf_data, 0 ))
+				goto ttf_fail;
+
+			scale = stbtt_ScaleForPixelHeight( &info, pixel_height );
+
+			stbtt_GetFontVMetrics( &info, &ascent, &descent, &lineGap );
+
+			for( i = 0; i < 256; ++i )
+			{
+				int advance = 0, lsb = 0;
+				stbtt_GetCodepointHMetrics( &info, i, &advance, &lsb );
+				if( advance > max_advance )
+					max_advance = advance;
+			}
+
+			cell_w = bound( 8, (int)( max_advance * scale + 2.0f + 0.5f ), 64 );
+			cell_h = bound( 8, (int)( pixel_height + 6.0f + 0.5f ), 64 );
+			atlas_w = 16 * cell_w;
+			atlas_h = 16 * cell_h;
+
+			alpha = (unsigned char *)Mem_Alloc( host.mempool, atlas_w * atlas_h );
+			Q_memset( alpha, 0, atlas_w * atlas_h );
+
+			for( i = 0; i < 256; ++i )
+			{
+				int advance = 0, lsb = 0;
+				int gw = 0, gh = 0, xoff = 0, yoff = 0;
+				int cell_x = ( i & 15 ) * cell_w;
+				int cell_y = ( i >> 4 ) * cell_h;
+				int baseline = (int)( ascent * scale + 0.5f );
+				int dst_x, dst_y;
+				unsigned char *gbmp;
+				int row;
+				int adv_px;
+
+				stbtt_GetCodepointHMetrics( &info, i, &advance, &lsb );
+				adv_px = (int)( advance * scale * con_fontscale->value + 0.5f );
+
+				gbmp = stbtt_GetCodepointBitmap( &info, 0, scale, i, &gw, &gh, &xoff, &yoff );
+				if( !gbmp || gw <= 0 || gh <= 0 )
+				{
+					font->fontRc[i].left = cell_x;
+					font->fontRc[i].top = cell_y;
+					font->fontRc[i].right = cell_x + cell_w;
+					font->fontRc[i].bottom = cell_y + cell_h;
+					font->charWidths[i] = (byte)bound( 0, adv_px, 255 );
+					if( gbmp ) stbtt_FreeBitmap( gbmp, NULL );
+					continue;
+				}
+
+				dst_x = cell_x;
+				dst_y = cell_y + baseline;
+				dst_x += bound( 0, xoff, cell_w - 1 );
+				dst_y += yoff;
+
+				for( row = 0; row < gh; ++row )
+				{
+					int sy = dst_y + row;
+					int sx = dst_x;
+					int copy = gw;
+					if( sy < 0 || sy >= atlas_h )
+						continue;
+					if( sx < 0 ) { copy += sx; sx = 0; }
+					if( sx + copy > atlas_w ) copy = atlas_w - sx;
+					if( copy > 0 )
+						Q_memcpy( alpha + sy * atlas_w + sx, gbmp + row * gw + ( sx - dst_x ), copy );
+				}
+
+				stbtt_FreeBitmap( gbmp, NULL );
+
+				font->fontRc[i].left = cell_x;
+				font->fontRc[i].top = cell_y;
+				font->fontRc[i].right = cell_x + cell_w;
+				font->fontRc[i].bottom = cell_y + cell_h;
+				font->charWidths[i] = (byte)bound( 0, adv_px, 255 );
+			}
+
+			if( alpha != NULL )
+			{
+				byte *rgba = (byte *)Mem_Alloc( host.mempool, atlas_w * atlas_h * 4 );
+				for( i = 0; i < atlas_w * atlas_h; ++i )
+				{
+					rgba[i * 4 + 0] = 255;
+					rgba[i * 4 + 1] = 255;
+					rgba[i * 4 + 2] = 255;
+					rgba[i * 4 + 3] = alpha[i];
+				}
+
+				font->hFontTexture = GL_CreateTexture( va( "#con_ttf_font%i", fontNumber ), atlas_w, atlas_h, rgba, TF_FONT|TF_NEAREST|TF_NOMIPMAP|TF_HAS_ALPHA );
+				if( font->hFontTexture )
+				{
+					font->charHeight = (int)( cell_h * con_fontscale->value + 0.5f );
+					font->valid = true;
+				}
+				Mem_Free( rgba );
+			}
+			if( alpha ) Mem_Free( alpha );
+		}
+
+		ttf_fail:
+		if( ttf_data ) Mem_Free( ttf_data );
+		if( font->valid ) return;
+	}
 	// replace default fonts.wad textures by current charset's font
 	if( !CRC32_File( &crc, "fonts.wad" ) || crc == 0x3c0a0029 )
 	{
@@ -652,6 +777,9 @@ int Con_DrawGenericChar( int x, int y, int number, rgba_t color )
 	float	s1, t1, s2, t2;
 	int w, h;
 	wrect_t	*rc;
+	rgba_t	shadow;
+	rgba_t	outline;
+	int	dx, dy;
 
 	number &= 255;
 
@@ -677,7 +805,47 @@ int Con_DrawGenericChar( int x, int y, int number, rgba_t color )
 	width = (rc->right - rc->left) * con_fontscale->value;
 	height = (rc->bottom - rc->top) * con_fontscale->value;
 
+	shadow[0] = 0;
+	shadow[1] = 0;
+	shadow[2] = 0;
+	shadow[3] = color[3];
+
+	outline[0] = (byte)bound( 0, (int)( color[0] * 0.25f + 0.5f ), 255 );
+	outline[1] = (byte)bound( 0, (int)( color[1] * 0.25f + 0.5f ), 255 );
+	outline[2] = (byte)bound( 0, (int)( color[2] * 0.25f + 0.5f ), 255 );
+	outline[3] = color[3];
+
+	{
+		int sx, sy, sw, sh;
+		sx = x + 1;
+		sy = y + 1;
+		sw = width;
+		sh = height;
+		TextAdjustSize( &sx, &sy, &sw, &sh );
+		pglColor4ubv( shadow );
+		R_DrawStretchPic( sx, sy, sw, sh, s1, t1, s2, t2, con.curFont->hFontTexture );
+	}
+
+	for( dy = -1; dy <= 1; ++dy )
+	{
+		for( dx = -1; dx <= 1; ++dx )
+		{
+			int ox, oy, ow, oh;
+			if( dx == 0 && dy == 0 )
+				continue;
+
+			ox = x + dx;
+			oy = y + dy;
+			ow = width;
+			oh = height;
+			TextAdjustSize( &ox, &oy, &ow, &oh );
+			pglColor4ubv( outline );
+			R_DrawStretchPic( ox, oy, ow, oh, s1, t1, s2, t2, con.curFont->hFontTexture );
+		}
+	}
+
 	TextAdjustSize( &x, &y, &width, &height );
+	pglColor4ubv( color );
 	R_DrawStretchPic( x, y, width, height, s1, t1, s2, t2, con.curFont->hFontTexture );
 	pglColor4ub( 255, 255, 255, 255 ); // don't forget reset color
 

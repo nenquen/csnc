@@ -164,6 +164,20 @@ void CStudioModelRenderer::StudioCalcBoneQuaterion(int frame, float s, mstudiobo
 	vec4_t q1, q2;
 	vec3_t angle1, angle2;
 	mstudioanimvalue_t *panimvalue;
+	uintptr_t panim_addr;
+
+	panim_addr = (uintptr_t)panim;
+	if( panim == NULL || panim_addr < 4096 )
+	{
+		for( j = 0; j < 3; j++ )
+		{
+			angle2[j] = angle1[j] = pbone->value[j + 3];
+			if( pbone->bonecontroller[j + 3] != -1 )
+				angle1[j] = angle2[j] = angle1[j] + adj[pbone->bonecontroller[j + 3]];
+		}
+		AngleQuaternion( angle1, q );
+		return;
+	}
 
 	for (j = 0; j < 3; j++)
 	{
@@ -241,6 +255,19 @@ void CStudioModelRenderer::StudioCalcBonePosition(int frame, float s, mstudiobon
 {
 	int j, k;
 	mstudioanimvalue_t *panimvalue;
+	uintptr_t panim_addr;
+
+	panim_addr = (uintptr_t)panim;
+	if( panim == NULL || panim_addr < 4096 )
+	{
+		for( j = 0; j < 3; j++ )
+		{
+			pos[j] = pbone->value[j];
+			if( pbone->bonecontroller[j] != -1 && adj )
+				pos[j] += adj[pbone->bonecontroller[j]];
+		}
+		return;
+	}
 
 	for (j = 0; j < 3; j++)
 	{
@@ -313,26 +340,93 @@ void CStudioModelRenderer::StudioSlerpBones(vec4_t q1[], float pos1[][3], vec4_t
 
 mstudioanim_t *CStudioModelRenderer::StudioGetAnim(model_t *m_pSubModel, mstudioseqdesc_t *pseqdesc)
 {
-	mstudioseqgroup_t *pseqgroup;
-	cache_user_t *paSequences;
+	// NOTE: mstudioseqgroup_t as declared in studio.h contains cache_user_t with a pointer.
+	// That makes the struct size different on 64-bit and breaks reading seqgroup data
+	// directly from the on-disk studio header. Use a packed on-disk representation here.
+	#pragma pack(push, 1)
+	typedef struct mstudioseqgroup_disk_s
+	{
+		char label[32];
+		char name[64];
+		int cache;
+		int data;
+	} mstudioseqgroup_disk_t;
+	#pragma pack(pop)
 
-	pseqgroup = (mstudioseqgroup_t *)((byte *)m_pStudioHeader + m_pStudioHeader->seqgroupindex) + pseqdesc->seqgroup;
+	mstudioseqgroup_disk_t *pseqgroup;
+	cache_user_t *paSequences;
+	int numSeqGroups;
+	byte *base;
+	int length;
+	int needed;
+
+	if( !m_pStudioHeader || !m_pSubModel || !pseqdesc )
+	{
+		gEngfuncs.Con_DPrintf( "StudioGetAnim: invalid args hdr=%p model=%p seq=%p\n", m_pStudioHeader, m_pSubModel, pseqdesc );
+		return NULL;
+	}
+
+	numSeqGroups = m_pStudioHeader->numseqgroups;
+	if( numSeqGroups <= 0 )
+		numSeqGroups = 1;
+
+	if( pseqdesc->seqgroup < 0 || pseqdesc->seqgroup >= numSeqGroups )
+	{
+		gEngfuncs.Con_DPrintf( "StudioGetAnim: bad seqgroup %d/%d model=%s\n", pseqdesc->seqgroup, numSeqGroups, m_pSubModel->name );
+		return NULL;
+	}
+
+	pseqgroup = (mstudioseqgroup_disk_t *)((byte *)m_pStudioHeader + m_pStudioHeader->seqgroupindex) + pseqdesc->seqgroup;
 
 	if (pseqdesc->seqgroup == 0)
-		return (mstudioanim_t *)((byte *)m_pStudioHeader + pseqgroup->data + pseqdesc->animindex);
+	{
+		base = (byte *)m_pStudioHeader + pseqgroup->data;
+		length = m_pStudioHeader->length - pseqgroup->data;
+		needed = pseqdesc->animindex + ( pseqdesc->numblends * m_pStudioHeader->numbones * (int)sizeof( mstudioanim_t ));
+		if( pseqdesc->animindex < 0 || needed < 0 || needed > length )
+		{
+			gEngfuncs.Con_DPrintf( "StudioGetAnim: group0 OOB model=%s animindex=%d needed=%d length=%d numblends=%d numbones=%d dataofs=%d\n",
+				m_pSubModel->name, pseqdesc->animindex, needed, length, pseqdesc->numblends, m_pStudioHeader->numbones, pseqgroup->data );
+			return NULL;
+		}
+		return (mstudioanim_t *)( base + pseqdesc->animindex );
+	}
 
 	paSequences = (cache_user_t *)m_pSubModel->submodels;
 
 	if (paSequences == NULL)
 	{
-		paSequences = (cache_user_t *)IEngineStudio.Mem_Calloc(16, sizeof(cache_user_t));
+		int allocGroups = ( numSeqGroups > 16 ) ? numSeqGroups : 16;
+		paSequences = (cache_user_t *)IEngineStudio.Mem_Calloc( allocGroups, sizeof( cache_user_t ));
 		m_pSubModel->submodels = (dmodel_t *)paSequences;
+	}
+
+	if( pseqdesc->seqgroup < 0 || pseqdesc->seqgroup >= numSeqGroups )
+	{
+		gEngfuncs.Con_DPrintf( "StudioGetAnim: bad seqgroup(after alloc) %d/%d model=%s\n", pseqdesc->seqgroup, numSeqGroups, m_pSubModel->name );
+		return NULL;
 	}
 
 	if (!IEngineStudio.Cache_Check((struct cache_user_s *)&(paSequences[pseqdesc->seqgroup])))
 	{
-		gEngfuncs.Con_DPrintf("loading %s\n", pseqgroup->name);
-		IEngineStudio.LoadCacheFile(pseqgroup->name, (struct cache_user_s *)&paSequences[pseqdesc->seqgroup]);
+		gEngfuncs.Con_DPrintf( "StudioGetAnim: loading seqgroup %d file=%s model=%s\n", pseqdesc->seqgroup, pseqgroup->name, m_pSubModel->name );
+		IEngineStudio.LoadCacheFile( pseqgroup->name, (struct cache_user_s *)&paSequences[pseqdesc->seqgroup] );
+	}
+
+	if( !paSequences[pseqdesc->seqgroup].data )
+	{
+		gEngfuncs.Con_DPrintf( "StudioGetAnim: load failed seqgroup %d file=%s model=%s\n", pseqdesc->seqgroup, pseqgroup->name, m_pSubModel->name );
+		return NULL;
+	}
+
+	base = (byte *)paSequences[pseqdesc->seqgroup].data;
+	length = ((studioseqhdr_t *)base)->length;
+	needed = pseqdesc->animindex + ( pseqdesc->numblends * m_pStudioHeader->numbones * (int)sizeof( mstudioanim_t ));
+	if( pseqdesc->animindex < 0 || needed < 0 || needed > length )
+	{
+		gEngfuncs.Con_DPrintf( "StudioGetAnim: group%d OOB model=%s file=%s animindex=%d needed=%d length=%d numblends=%d numbones=%d\n",
+			pseqdesc->seqgroup, m_pSubModel->name, pseqgroup->name, pseqdesc->animindex, needed, length, pseqdesc->numblends, m_pStudioHeader->numbones );
+		return NULL;
 	}
 
 	return (mstudioanim_t *)((byte *)paSequences[pseqdesc->seqgroup].data + pseqdesc->animindex);
@@ -481,6 +575,9 @@ void CStudioModelRenderer::StudioCalcRotations(float pos[][3], vec4_t *q, mstudi
 	dadt = StudioEstimateInterpolant();
 	s = (f - frame);
 
+	if( !m_pStudioHeader || !pseqdesc || !panim )
+		return;
+
 	pbone = (mstudiobone_t *)((byte *)m_pStudioHeader + m_pStudioHeader->boneindex);
 
 	StudioCalcBoneAdj(dadt, adj, m_pCurrentEntity->curstate.controller, m_pCurrentEntity->latched.prevcontroller, m_pCurrentEntity->mouth.mouthopen);
@@ -628,6 +725,8 @@ void CStudioModelRenderer::StudioSetupBones(void)
 
 	f = StudioEstimateFrame(pseqdesc);
 	panim = StudioGetAnim(m_pRenderModel, pseqdesc);
+	if( !panim )
+		return;
 
 	StudioCalcRotations(pos, q, pseqdesc, panim, f);
 
