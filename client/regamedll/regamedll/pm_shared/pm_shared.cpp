@@ -1636,7 +1636,7 @@ void PM_CategorizePosition()
 
 	// Do not stick to the ground of an OBSERVER or NOCLIP mode
 #ifdef REGAMEDLL_FIXES
-	if (pmoveplayer->m_MovementVersion.IsAtLeast(1, 0) && (pmove->movetype == MOVETYPE_NOCLIP || pmove->movetype == MOVETYPE_NONE))
+	if (pmoveplayer && pmoveplayer->m_MovementVersion.IsAtLeast(1, 0) && (pmove->movetype == MOVETYPE_NOCLIP || pmove->movetype == MOVETYPE_NONE))
 	{
 		pmove->onground = -1;
 		return;
@@ -1723,7 +1723,8 @@ qboolean PM_CheckStuck()
 	static float rgStuckCheckTime[MAX_CLIENTS][2];
 
 	// If position is okay, exit
-	hitent = pmove->PM_TestPlayerPosition(pmove->origin, &traceresult);
+	hitent = pmove->PM_TestPlayerPosition(pmove->origin, nullptr);
+
 	if (hitent == -1)
 	{
 		PM_ResetStuckOffsets(pmove->player_index, pmove->server);
@@ -1926,7 +1927,7 @@ void PM_SpectatorMove()
 		if (addspeed <= 0)
 		{
 #ifdef REGAMEDLL_FIXES
-			if (pmoveplayer->m_MovementVersion.IsLessThan(1, 0))
+			if (pmoveplayer && pmoveplayer->m_MovementVersion.IsLessThan(1, 0))
 #endif
 				return;
 		}
@@ -2141,7 +2142,7 @@ void EXT_FUNC __API_HOOK(PM_Duck)()
 	real_t mult = PLAYER_DUCKING_MULTIPLIER;
 
 #ifdef REGAMEDLL_API
-	if (pmoveplayer->m_flDuckSpeedMultiplier > 0.0)
+	if (pmoveplayer && pmoveplayer->m_flDuckSpeedMultiplier > 0.0)
 		mult = pmoveplayer->m_flDuckSpeedMultiplier;
 #endif
 
@@ -2262,7 +2263,7 @@ void EXT_FUNC __API_HOOK(PM_LadderMove)(physent_t *pLadder)
 		if (pmove->flags & FL_DUCKING)
 		{
 #ifdef REGAMEDLL_API
-			if (pmoveplayer->m_flDuckSpeedMultiplier > 0.0)
+			if (pmoveplayer && pmoveplayer->m_flDuckSpeedMultiplier > 0.0)
 			{
 				flSpeed *= pmoveplayer->m_flDuckSpeedMultiplier;
 			}
@@ -2616,10 +2617,10 @@ inline real_t PM_JumpHeight(bool longjump)
 #ifdef REGAMEDLL_API
 	if (longjump)
 	{
-		if (pmoveplayer->m_flLongJumpHeight > 0.0)
+		if (pmoveplayer && pmoveplayer->m_flLongJumpHeight > 0.0)
 			return pmoveplayer->m_flLongJumpHeight;
 	}
-	else if (pmoveplayer->m_flJumpHeight > 0.0)
+	else if (pmoveplayer && pmoveplayer->m_flJumpHeight > 0.0)
 		return pmoveplayer->m_flJumpHeight;
 #endif
 
@@ -2713,7 +2714,7 @@ void EXT_FUNC __API_HOOK(PM_Jump)()
 #ifdef REGAMEDLL_ADD
 		&& sv_autobunnyhopping.value <= 0.0
 #ifdef REGAMEDLL_API
-		&& !pmoveplayer->m_bAutoBunnyHopping
+		&& (!pmoveplayer || !pmoveplayer->m_bAutoBunnyHopping)
 #endif
 #endif
 		)
@@ -2734,7 +2735,7 @@ void EXT_FUNC __API_HOOK(PM_Jump)()
 #ifdef REGAMEDLL_ADD
 	if (sv_enablebunnyhopping.value <= 0.0
 #ifdef REGAMEDLL_API
-		&& !pmoveplayer->m_bMegaBunnyJumping
+		&& (!pmoveplayer || !pmoveplayer->m_bMegaBunnyJumping)
 #endif
 		)
 #endif
@@ -2765,7 +2766,7 @@ void EXT_FUNC __API_HOOK(PM_Jump)()
 			pmove->punchangle[0] = -5.0f;
 
 #ifdef REGAMEDLL_API
-			if (pmoveplayer->m_flLongJumpForce > 0.0)
+			if (pmoveplayer && pmoveplayer->m_flLongJumpForce > 0.0)
 			{
 				fvel = pmoveplayer->m_flLongJumpForce;
 			}
@@ -3520,7 +3521,13 @@ void EXT_FUNC __API_HOOK(PM_Move)(struct playermove_s *ppmove, int server)
 	pmove = ppmove;
 
 #ifdef REGAMEDLL_API
-	pmoveplayer = UTIL_PlayerByIndex(pmove->player_index + 1)->CSPlayer();
+	pmoveplayer = nullptr;
+	if (pmove)
+	{
+		CBasePlayer *player = UTIL_PlayerByIndex(pmove->player_index + 1);
+		if (player)
+			pmoveplayer = player->CSPlayer();
+	}
 #endif
 
 	PM_PlayerMove((server != 0) ? TRUE : FALSE);
@@ -3537,7 +3544,8 @@ void EXT_FUNC __API_HOOK(PM_Move)(struct playermove_s *ppmove, int server)
 
 #ifdef REGAMEDLL_API
 	// save the last usercmd
-	pmoveplayer->SetLastUserCommand(pmove->cmd);
+	if (pmoveplayer)
+		pmoveplayer->SetLastUserCommand(pmove->cmd);
 #endif
 }
 

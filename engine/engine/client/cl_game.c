@@ -49,6 +49,10 @@ static struct crosshair_s
 
 extern rgba_t g_color_table[8];
 
+static void CL_PostRunCmd_Stub( struct local_state_s *from, struct local_state_s *to, usercmd_t *cmd, int runfuncs, double time, uint32_t random_seed )
+{
+}
+
 static dllfunc_t cdll_exports[] =
 {
 { "Initialize", (void **)&clgame.dllFuncs.pfnInitialize },
@@ -1614,7 +1618,7 @@ HSPRITE pfnSPR_LoadExt( const char *szPicName, uint32_t texFlags )
 			break; // this is a valid spot
 	}
 
-	if( i >= MAX_IMAGES ) 
+	if( i == MAX_IMAGES ) 
 	{
 		MsgDev( D_ERROR, "SPR_Load: can't load %s, MAX_HSPRITES limit exceeded\n", szPicName );
 		return 0;
@@ -1711,9 +1715,9 @@ pfnSPR_Set
 
 =========
 */
-static void GAME_EXPORT pfnSPR_Set( HSPRITE hPic, int r, int g, int b )
+static void GAME_EXPORT pfnSPR_Set( HSPRITE hspr, int r, int g, int b )
 {
-	clgame.ds.pSprite = CL_GetSpritePointer( hPic );
+	clgame.ds.pSprite = CL_GetSpritePointer( hspr );
 	clgame.ds.spriteColor[0] = bound( 0, r, 255 );
 	clgame.ds.spriteColor[1] = bound( 0, g, 255 );
 	clgame.ds.spriteColor[2] = bound( 0, b, 255 );
@@ -1883,13 +1887,7 @@ int GAME_EXPORT pfnGetScreenInfo( SCREENINFO *pscrinfo )
 		clgame.scrInfo.iFlags &= ~SCRINFO_STRETCHED;
 	}
 
-	if( !pscrinfo ) return 0;
-
-	if( pscrinfo->iSize != clgame.scrInfo.iSize )
-		clgame.scrInfo.iSize = pscrinfo->iSize;
-
-	// copy screeninfo out
-	Q_memcpy( pscrinfo, &clgame.scrInfo, clgame.scrInfo.iSize );
+	if( pscrinfo ) *pscrinfo = clgame.scrInfo;
 
 	return 1;
 }
@@ -3554,8 +3552,7 @@ void GAME_EXPORT TriCullFace( TRICULLSTYLE mode )
 	case TRI_FRONT:
 		clgame.ds.cullMode = GL_FRONT;
 		break;
-	default:
-		clgame.ds.cullMode = GL_NONE;
+	default:	clgame.ds.cullMode = GL_NONE;
 		break;
 	}
 	GL_Cull( clgame.ds.cullMode );
@@ -3717,7 +3714,7 @@ void GAME_EXPORT TriColor4fRendermode( float r, float g, float b, float a, int r
 
 /*
 =============
-TriForParams
+TriFogParams
 
 =============
 */
@@ -4019,8 +4016,7 @@ static void GAME_EXPORT Voice_EndVoiceTweakMode( void )
 =================
 Voice_SetControlFloat
 
-=================
-*/	
+=================*/	
 static void GAME_EXPORT Voice_SetControlFloat( VoiceTweakControl iControl, float value )
 {
 	// TODO: implement
@@ -4442,21 +4438,27 @@ qboolean CL_LoadProgs( const char *name )
 		if( *func->func != NULL )
 			continue;	// already get through 'F'
 
-		// functions are cleared before all the extensions are evaluated
-		if(!( *func->func = (void *)Com_GetProcAddress( clgame.hInstance, func->name )))
-		{
-			MsgDev( D_NOTE, "CL_LoadProgs: failed to get address of %s proc\n", func->name );
+ 		// functions are cleared before all the extensions are evaluated
+ 		if(!( *func->func = (void *)Com_GetProcAddress( clgame.hInstance, func->name )))
+ 		{
+ 			MsgDev( D_NOTE, "CL_LoadProgs: failed to get address of %s proc\n", func->name );
 
-			if( critical_exports )
+			// HUD_PostRunCmd may be absent in some client builds; treat as optional
+			if( !Q_stricmp( func->name, "HUD_PostRunCmd" ))
 			{
-				Com_FreeLibrary( clgame.hInstance );
-				clgame.hInstance = NULL;
+				clgame.dllFuncs.pfnPostRunCmd = CL_PostRunCmd_Stub;
+				continue;
+			}
+ 
+ 			if( critical_exports )
+ 			{
+ 				Com_FreeLibrary( clgame.hInstance );
+ 				clgame.hInstance = NULL;
 				return false;
 			}
 		}
 	}
 
-	// it may be loaded through 'F' so we don't need to clear them
 	if( critical_exports )
 	{
 		// clear new exports

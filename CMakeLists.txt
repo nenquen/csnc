@@ -43,6 +43,9 @@ if(WIN32)
         engine/engine/server/*.c
     )
 
+    # Android-only stub, must not be linked on Win32
+    list(FILTER ENGINE_SOURCES EXCLUDE REGEX "imgui_bridge_android_stub\\.c$")
+
     file(GLOB PLATFORM_SDL_SOURCES engine/engine/platform/sdl/*.c)
     file(GLOB PLATFORM_WIN32_SOURCES engine/engine/platform/win32/*.c)
     list(APPEND ENGINE_SOURCES ${PLATFORM_SDL_SOURCES} ${PLATFORM_WIN32_SOURCES})
@@ -53,6 +56,11 @@ else()
         engine/engine/server/*.c
         engine/engine/platform/*.c
     )
+
+    # Android-only stub, must not be linked on non-Android platforms
+    if(NOT ANDROID)
+        list(FILTER ENGINE_SOURCES EXCLUDE REGEX "imgui_bridge_android_stub\\.c$")
+    endif()
 endif()
 
 # Loader sources (Unix/Linux only - for Wine-like functionality)

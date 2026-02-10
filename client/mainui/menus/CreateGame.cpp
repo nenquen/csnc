@@ -92,23 +92,45 @@ CMenuCreateGame::Begin
 void CMenuCreateGame::Begin( CMenuBaseItem *pSelf, void *pExtra )
 {
 	CMenuCreateGame *menu = (CMenuCreateGame*)pSelf->Parent();
+	menu->mapsListModel.Update();
 	int item = menu->mapsList.GetCurrentIndex();
-	if( item < 0 || item > UI_MAXGAMES )
+	if( item < 0 || item >= UI_MAXGAMES )
 		return;
 
-	const char *mapName;
+	const char *mapName = "";
 	if( menu->mapsList.GetCurrentIndex() == 0 )
 	{
-		int idx = EngFuncs::RandomLong( 1, menu->mapsListModel.GetRows() );
-		mapName = menu->mapsListModel.mapName[idx];
+		int rows = menu->mapsListModel.GetRows();
+		if( rows > UI_MAXGAMES ) rows = UI_MAXGAMES;
+		if( rows > 1 )
+		{
+			int idx = EngFuncs::RandomLong( 1, rows - 1 );
+			mapName = menu->mapsListModel.mapName[idx];
+		}
 	}
 	else
 	{
 		mapName = menu->mapsListModel.mapName[menu->mapsList.GetCurrentIndex()];
 	}
 
+	char mapNameCopy[64];
+	mapNameCopy[0] = '\0';
+	if( mapName )
+		Q_strncpy( mapNameCopy, mapName, sizeof( mapNameCopy ));
+
+	mapName = mapNameCopy;
+
+	if( !mapName || mapName[0] == '\0' )
+		mapName = EngFuncs::GetCvarString( "defaultmap" );
+	if( !mapName || mapName[0] == '\0' )
+		mapName = menu->mapsListModel.mapName[1];
+	if( !mapName || mapName[0] == '\0' || !EngFuncs::IsMapValid( mapName ))
+		mapName = "de_dust2";
+
 	if( !EngFuncs::IsMapValid( mapName ))
 		return;	// bad map
+
+	Con_Printf( "CreateGame: selected map '%s'\n", mapName );
 
 	if( EngFuncs::GetCvarFloat( "host_serverstate" ) )
 	{
@@ -119,7 +141,7 @@ void CMenuCreateGame::Begin( CMenuBaseItem *pSelf, void *pExtra )
 	}
 
 	EngFuncs::CvarSetValue( "deathmatch", 1.0f );	// start deathmatch as default
-	EngFuncs::CvarSetString( "defaultmap", mapName );
+	EngFuncs::CvarSetString( "defaultmap", mapNameCopy );
 	EngFuncs::CvarSetValue( "sv_nat", EngFuncs::GetCvarFloat( "public" ) ? menu->nat.bChecked : 0 );
 	menu->password.WriteCvar();
 	menu->hostName.WriteCvar();
@@ -152,7 +174,8 @@ void CMenuCreateGame::Begin( CMenuBaseItem *pSelf, void *pExtra )
 		// dirty listenserver config form old xash may rewrite maxplayers
 		EngFuncs::CvarSetValue( "maxplayers", atoi( menu->maxClients.GetBuffer() ));
 
-		Com_EscapeCommand( cmd2, mapName, 256 );
+		Com_EscapeCommand( cmd2, mapNameCopy, 256 );
+		Con_Printf( "CreateGame: escaped map '%s'\n", cmd2 );
 
 		// hack: wait three frames allowing server to completely shutdown, reapply maxplayers and start new map
 		sprintf( cmd, "endgame;menu_connectionprogress localserver;wait;wait;wait;maxplayers %i;latch;map %s\n", atoi( menu->maxClients.GetBuffer() ), cmd2 );
