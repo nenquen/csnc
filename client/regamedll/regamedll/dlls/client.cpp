@@ -81,6 +81,7 @@ int gmsgBotProgress = 0;
 int gmsgBrass = 0;
 int gmsgFog = 0;
 int gmsgShowTimer = 0;
+int gmsgZB3Claw = 0;
 int gmsgAccount = 0;
 int gmsgHealthInfo = 0;
 bool g_bClientPrintEnable = true;
@@ -224,6 +225,7 @@ void LinkUserMessages()
 	gmsgBrass         = REG_USER_MSG("Brass", -1);
 	gmsgFog           = REG_USER_MSG("Fog", 7);
 	gmsgShowTimer     = REG_USER_MSG("ShowTimer", 0);
+	gmsgZB3Claw       = REG_USER_MSG("ZB3Claw", 8);
 	gmsgHudTextArgs   = REG_USER_MSG("HudTextArgs", -1);
 
 #ifdef BUILD_LATEST
@@ -448,9 +450,6 @@ NOXREF int CountTeams()
 			continue;
 
 		if (pPlayer->IsDormant())
-			continue;
-
-		if (pPlayer->m_iTeam == SPECTATOR)
 			continue;
 
 		if (pPlayer->m_iTeam == CT)
@@ -702,11 +701,7 @@ void EXT_FUNC ClientPutInServer(edict_t *pEntity)
 		pPlayer->pev->angles = CamAngles;
 		pPlayer->pev->v_angle = pPlayer->pev->angles;
 
-		pPlayer->m_fIntroCamTime =
-#ifdef REGAMEDLL_FIXES
-			(CSGameRules()->m_bMapHasCameras <= 1) ? 0.0 : // no need to refresh cameras if map has only one
-#endif
-			gpGlobals->time + 6;
+		pPlayer->m_fIntroCamTime = gpGlobals->time + 6;
 
 		pPlayer->pev->view_ofs = g_vecZero;
 	}
@@ -1255,6 +1250,11 @@ void EXT_FUNC __API_HOOK(BuyItem)(CBasePlayer *pPlayer, int iSlot)
 
 	if (!pPlayer->CanPlayerBuy(true))
 		return;
+
+#ifdef REGAMEDLL_ADD
+	if (pPlayer->HasRestrictItem(ITEM_KEVLAR, ITEM_TYPE_BUYING))
+		return;
+#endif
 
 	if (pPlayer->m_iTeam == CT)
 	{
@@ -2062,6 +2062,7 @@ BOOL EXT_FUNC __API_HOOK(HandleMenu_ChooseTeam)(CBasePlayer *pPlayer, int slot)
 		pPlayer->pev->takedamage = DAMAGE_NO;
 		pPlayer->pev->deadflag = DEAD_DEAD;
 		pPlayer->pev->punchangle = g_vecZero;
+		pPlayer->pev->velocity = g_vecZero;
 
 		pPlayer->m_bHasNightVision = false;
 		pPlayer->m_iHostagesKilled = 0;
@@ -2746,12 +2747,6 @@ void EXT_FUNC InternalCommand(edict_t *pEntity, const char *pcmd, const char *pa
 
 			if (pPlayer->m_iTeam != UNASSIGNED)
 			{
-				if (gpGlobals->time < CGameRules::GetVotemapMinElapsedTime())
-				{
-					ClientPrint(pPlayer->pev, HUD_PRINTCONSOLE, "#Cannot_Vote_Map");
-					return;
-				}
-
 				bool bFailed = false;
 				int iNumArgs = CMD_ARGC_();
 				int iVoteLength = Q_strlen(parg1);
@@ -3517,7 +3512,7 @@ void EXT_FUNC InternalCommand(edict_t *pEntity, const char *pcmd, const char *pa
 			}
 			else if (FStrEq(pcmd, "buyammo1"))
 			{
-				if (pPlayer->m_signals.GetState() & SIGNAL_BUY)
+				if (pPlayer->CanPlayerBuy(true))
 				{
 					BuyAmmo(pPlayer, PRIMARY_WEAPON_SLOT, true);
 					pPlayer->BuildRebuyStruct();
@@ -3530,7 +3525,7 @@ void EXT_FUNC InternalCommand(edict_t *pEntity, const char *pcmd, const char *pa
 			}
 			else if (FStrEq(pcmd, "buyammo2"))
 			{
-				if (pPlayer->m_signals.GetState() & SIGNAL_BUY)
+				if (pPlayer->CanPlayerBuy(true))
 				{
 					BuyAmmo(pPlayer, PISTOL_SLOT, true);
 					pPlayer->BuildRebuyStruct();
@@ -3543,7 +3538,7 @@ void EXT_FUNC InternalCommand(edict_t *pEntity, const char *pcmd, const char *pa
 			}
 			else if (FStrEq(pcmd, "buyequip"))
 			{
-				if (pPlayer->m_signals.GetState() & SIGNAL_BUY)
+				if (pPlayer->CanPlayerBuy(true))
 				{
 					if (CSGameRules()->m_bMapHasBombTarget)
 					{
@@ -3565,7 +3560,7 @@ void EXT_FUNC InternalCommand(edict_t *pEntity, const char *pcmd, const char *pa
 			}
 			else if (FStrEq(pcmd, "buy"))
 			{
-				if (pPlayer->m_signals.GetState() & SIGNAL_BUY)
+				if (pPlayer->CanPlayerBuy(true))
 				{
 					ShowVGUIMenu(pPlayer, VGUI_Menu_Buy, (MENU_KEY_1 | MENU_KEY_2 | MENU_KEY_3 | MENU_KEY_4 | MENU_KEY_5 | MENU_KEY_6 | MENU_KEY_7 | MENU_KEY_8 | MENU_KEY_0), "#Buy");
 					pPlayer->m_iMenu = Menu_Buy;
@@ -3607,7 +3602,7 @@ void EXT_FUNC InternalCommand(edict_t *pEntity, const char *pcmd, const char *pa
 #endif
 			else if (FStrEq(pcmd, "cl_autobuy"))
 			{
-				if (pPlayer->m_signals.GetState() & SIGNAL_BUY)
+				if (pPlayer->CanPlayerBuy(true))
 				{
 					bool oldval = g_bClientPrintEnable;
 					g_bClientPrintEnable = false;
@@ -3617,7 +3612,7 @@ void EXT_FUNC InternalCommand(edict_t *pEntity, const char *pcmd, const char *pa
 			}
 			else if (FStrEq(pcmd, "cl_rebuy"))
 			{
-				if (pPlayer->m_signals.GetState() & SIGNAL_BUY)
+				if (pPlayer->CanPlayerBuy(true))
 				{
 					bool oldval = g_bClientPrintEnable;
 					g_bClientPrintEnable = false;
@@ -3906,20 +3901,21 @@ void EndFrame()
 
 void ClientPrecache()
 {
-	int i;
+    int i;
 
-	PRECACHE_SOUND("weapons/dryfire_pistol.wav");
-	PRECACHE_SOUND("weapons/dryfire_rifle.wav");
-	PRECACHE_SOUND("player/pl_shot1.wav");
-	PRECACHE_SOUND("player/pl_die1.wav");
-	PRECACHE_SOUND("player/headshot1.wav");
-	PRECACHE_SOUND("player/headshot2.wav");
-	PRECACHE_SOUND("player/headshot3.wav");
-	PRECACHE_SOUND("player/bhit_flesh-1.wav");
+    PRECACHE_MODEL("models/csnc/claweffect.mdl");
 	PRECACHE_SOUND("player/bhit_flesh-2.wav");
 	PRECACHE_SOUND("player/bhit_flesh-3.wav");
 	PRECACHE_SOUND("player/bhit_kevlar-1.wav");
 	PRECACHE_SOUND("player/bhit_helmet-1.wav");
+	PRECACHE_SOUND("csnc/zombie_hurt_01.wav");
+	PRECACHE_SOUND("csnc/zombie_hurt_02.wav");
+	PRECACHE_SOUND("csnc/zombie_death_1.wav");
+	PRECACHE_SOUND("csnc/zombie_death_2.wav");
+	PRECACHE_SOUND("csnc/human_death_01.wav");
+	PRECACHE_SOUND("csnc/human_death_02.wav");
+	PRECACHE_SOUND("csnc/zombie_win.wav");
+	PRECACHE_SOUND("csnc/human_win.wav");
 	PRECACHE_SOUND("player/die1.wav");
 	PRECACHE_SOUND("player/die2.wav");
 	PRECACHE_SOUND("player/die3.wav");
@@ -3947,339 +3943,6 @@ void ClientPrecache()
 	PRECACHE_SOUND("weapons/explode3.wav");
 	PRECACHE_SOUND("weapons/explode4.wav");
 	PRECACHE_SOUND("weapons/explode5.wav");
-	PRECACHE_SOUND("player/sprayer.wav");
-	PRECACHE_SOUND("player/pl_fallpain2.wav");
-	PRECACHE_SOUND("player/pl_fallpain3.wav");
-	PRECACHE_SOUND("player/pl_snow1.wav");
-	PRECACHE_SOUND("player/pl_snow2.wav");
-	PRECACHE_SOUND("player/pl_snow3.wav");
-	PRECACHE_SOUND("player/pl_snow4.wav");
-	PRECACHE_SOUND("player/pl_snow5.wav");
-	PRECACHE_SOUND("player/pl_snow6.wav");
-	PRECACHE_SOUND("player/pl_step1.wav");
-	PRECACHE_SOUND("player/pl_step2.wav");
-	PRECACHE_SOUND("player/pl_step3.wav");
-	PRECACHE_SOUND("player/pl_step4.wav");
-	PRECACHE_SOUND("common/npc_step1.wav");
-	PRECACHE_SOUND("common/npc_step2.wav");
-	PRECACHE_SOUND("common/npc_step3.wav");
-	PRECACHE_SOUND("common/npc_step4.wav");
-	PRECACHE_SOUND("player/pl_metal1.wav");
-	PRECACHE_SOUND("player/pl_metal2.wav");
-	PRECACHE_SOUND("player/pl_metal3.wav");
-	PRECACHE_SOUND("player/pl_metal4.wav");
-	PRECACHE_SOUND("player/pl_dirt1.wav");
-	PRECACHE_SOUND("player/pl_dirt2.wav");
-	PRECACHE_SOUND("player/pl_dirt3.wav");
-	PRECACHE_SOUND("player/pl_dirt4.wav");
-	PRECACHE_SOUND("player/pl_duct1.wav");
-	PRECACHE_SOUND("player/pl_duct2.wav");
-	PRECACHE_SOUND("player/pl_duct3.wav");
-	PRECACHE_SOUND("player/pl_duct4.wav");
-	PRECACHE_SOUND("player/pl_grate1.wav");
-	PRECACHE_SOUND("player/pl_grate2.wav");
-	PRECACHE_SOUND("player/pl_grate3.wav");
-	PRECACHE_SOUND("player/pl_grate4.wav");
-	PRECACHE_SOUND("player/pl_slosh1.wav");
-	PRECACHE_SOUND("player/pl_slosh2.wav");
-	PRECACHE_SOUND("player/pl_slosh3.wav");
-	PRECACHE_SOUND("player/pl_slosh4.wav");
-	PRECACHE_SOUND("player/pl_tile1.wav");
-	PRECACHE_SOUND("player/pl_tile2.wav");
-	PRECACHE_SOUND("player/pl_tile3.wav");
-	PRECACHE_SOUND("player/pl_tile4.wav");
-	PRECACHE_SOUND("player/pl_tile5.wav");
-	PRECACHE_SOUND("player/pl_swim1.wav");
-	PRECACHE_SOUND("player/pl_swim2.wav");
-	PRECACHE_SOUND("player/pl_swim3.wav");
-	PRECACHE_SOUND("player/pl_swim4.wav");
-	PRECACHE_SOUND("player/pl_ladder1.wav");
-	PRECACHE_SOUND("player/pl_ladder2.wav");
-	PRECACHE_SOUND("player/pl_ladder3.wav");
-	PRECACHE_SOUND("player/pl_ladder4.wav");
-	PRECACHE_SOUND("player/pl_wade1.wav");
-	PRECACHE_SOUND("player/pl_wade2.wav");
-	PRECACHE_SOUND("player/pl_wade3.wav");
-	PRECACHE_SOUND("player/pl_wade4.wav");
-	PRECACHE_SOUND("debris/wood1.wav");
-	PRECACHE_SOUND("debris/wood2.wav");
-	PRECACHE_SOUND("debris/wood3.wav");
-	PRECACHE_SOUND("plats/train_use1.wav");
-	PRECACHE_SOUND("plats/vehicle_ignition.wav");
-	PRECACHE_SOUND("buttons/spark5.wav");
-	PRECACHE_SOUND("buttons/spark6.wav");
-	PRECACHE_SOUND("debris/glass1.wav");
-	PRECACHE_SOUND("debris/glass2.wav");
-	PRECACHE_SOUND("debris/glass3.wav");
-	PRECACHE_SOUND(SOUND_FLASHLIGHT_ON);
-	PRECACHE_SOUND(SOUND_FLASHLIGHT_OFF);
-	PRECACHE_SOUND("common/bodysplat.wav");
-	PRECACHE_SOUND("player/pl_pain2.wav");
-	PRECACHE_SOUND("player/pl_pain4.wav");
-	PRECACHE_SOUND("player/pl_pain5.wav");
-	PRECACHE_SOUND("player/pl_pain6.wav");
-	PRECACHE_SOUND("player/pl_pain7.wav");
-
-	int numPlayerModels;
-	if (AreRunningCZero())
-		numPlayerModels = ARRAYSIZE(sPlayerModelFiles);
-	else
-		numPlayerModels = ARRAYSIZE(sPlayerModelFiles) - 2;
-
-	for (i = 0; i < numPlayerModels; i++)
-		PRECACHE_MODEL(sPlayerModelFiles[i]);
-
-	if (AreRunningCZero())
-	{
-		for (i = FirstCustomSkin; i <= LastCustomSkin; i++)
-		{
-			const char *fname = TheBotProfiles->GetCustomSkinFname(i);
-
-			if (!fname)
-				break;
-
-			PRECACHE_MODEL(fname);
-		}
-	}
-
-	PRECACHE_MODEL("models/p_ak47.mdl");
-	PRECACHE_MODEL("models/p_aug.mdl");
-	PRECACHE_MODEL("models/p_awp.mdl");
-	PRECACHE_MODEL("models/p_c4.mdl");
-	PRECACHE_MODEL("models/w_c4.mdl");
-	PRECACHE_MODEL("models/p_deagle.mdl");
-	PRECACHE_MODEL("models/shield/p_shield_deagle.mdl");
-	PRECACHE_MODEL("models/p_flashbang.mdl");
-	PRECACHE_MODEL("models/shield/p_shield_flashbang.mdl");
-	PRECACHE_MODEL("models/p_hegrenade.mdl");
-	PRECACHE_MODEL("models/shield/p_shield_hegrenade.mdl");
-	PRECACHE_MODEL("models/p_glock18.mdl");
-	PRECACHE_MODEL("models/shield/p_shield_glock18.mdl");
-	PRECACHE_MODEL("models/p_p228.mdl");
-	PRECACHE_MODEL("models/shield/p_shield_p228.mdl");
-	PRECACHE_MODEL("models/p_smokegrenade.mdl");
-	PRECACHE_MODEL("models/shield/p_shield_smokegrenade.mdl");
-	PRECACHE_MODEL("models/p_usp.mdl");
-	PRECACHE_MODEL("models/shield/p_shield_usp.mdl");
-	PRECACHE_MODEL("models/p_fiveseven.mdl");
-	PRECACHE_MODEL("models/shield/p_shield_fiveseven.mdl");
-	PRECACHE_MODEL("models/p_knife.mdl");
-	PRECACHE_MODEL("models/shield/p_shield_knife.mdl");
-	PRECACHE_MODEL("models/w_flashbang.mdl");
-	PRECACHE_MODEL("models/w_hegrenade.mdl");
-	PRECACHE_MODEL("models/p_sg550.mdl");
-	PRECACHE_MODEL("models/p_g3sg1.mdl");
-	PRECACHE_MODEL("models/p_m249.mdl");
-	PRECACHE_MODEL("models/p_m3.mdl");
-	PRECACHE_MODEL("models/p_m4a1.mdl");
-	PRECACHE_MODEL("models/p_mac10.mdl");
-	PRECACHE_MODEL("models/p_mp5.mdl");
-	PRECACHE_MODEL("models/p_ump45.mdl");
-	PRECACHE_MODEL("models/p_p90.mdl");
-	PRECACHE_MODEL("models/p_scout.mdl");
-	PRECACHE_MODEL("models/p_sg552.mdl");
-	PRECACHE_MODEL("models/w_smokegrenade.mdl");
-	PRECACHE_MODEL("models/p_tmp.mdl");
-	PRECACHE_MODEL("models/p_elite.mdl");
-	PRECACHE_MODEL("models/p_xm1014.mdl");
-	PRECACHE_MODEL("models/p_galil.mdl");
-	PRECACHE_MODEL("models/p_famas.mdl");
-	PRECACHE_MODEL("models/p_shield.mdl");
-	PRECACHE_MODEL("models/w_shield.mdl");
-
-	Vector temp = g_vecZero;
-	Vector vMin(-38, -24, -41);
-	Vector vMax(38, 24, 41);
-
-	for (i = 0; i < numPlayerModels; i++)
-		ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, sPlayerModelFiles[i]);
-
-	if (AreRunningCZero())
-	{
-		for (i = FirstCustomSkin; i <= LastCustomSkin; i++)
-		{
-			const char *fname = TheBotProfiles->GetCustomSkinFname(i);
-			if (!fname)
-				break;
-
-			ENGINE_FORCE_UNMODIFIED(force_model_specifybounds_if_avail, (float *)&vMin, (float *)&vMax, fname);
-		}
-	}
-
-	ENGINE_FORCE_UNMODIFIED(force_exactfile, (float *)&temp, (float *)&temp, "sprites/black_smoke1.spr");
-	ENGINE_FORCE_UNMODIFIED(force_exactfile, (float *)&temp, (float *)&temp, "sprites/black_smoke2.spr");
-	ENGINE_FORCE_UNMODIFIED(force_exactfile, (float *)&temp, (float *)&temp, "sprites/black_smoke3.spr");
-	ENGINE_FORCE_UNMODIFIED(force_exactfile, (float *)&temp, (float *)&temp, "sprites/black_smoke4.spr");
-	ENGINE_FORCE_UNMODIFIED(force_exactfile, (float *)&temp, (float *)&temp, "sprites/fast_wallpuff1.spr");
-	ENGINE_FORCE_UNMODIFIED(force_exactfile, (float *)&temp, (float *)&temp, "sprites/smokepuff.spr");
-	ENGINE_FORCE_UNMODIFIED(force_exactfile, (float *)&temp, (float *)&temp, "sprites/gas_puff_01.spr");
-	ENGINE_FORCE_UNMODIFIED(force_exactfile, (float *)&temp, (float *)&temp, "sprites/scope_arc.tga");
-	ENGINE_FORCE_UNMODIFIED(force_exactfile, (float *)&temp, (float *)&temp, "sprites/scope_arc_nw.tga");
-	ENGINE_FORCE_UNMODIFIED(force_exactfile, (float *)&temp, (float *)&temp, "sprites/scope_arc_ne.tga");
-	ENGINE_FORCE_UNMODIFIED(force_exactfile, (float *)&temp, (float *)&temp, "sprites/scope_arc_sw.tga");
-
-	if (AreRunningCZero())
-	{
-		vMin = Vector(-13, -6, -22);
-		vMax = Vector(13, 6, 22);
-	}
-	else
-	{
-		vMin = Vector(-12, -6, -22);
-		vMax = Vector(12, 6, 22);
-	}
-
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/p_deagle.mdl");
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/p_p228.mdl");
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/p_elite.mdl");
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/p_usp.mdl");
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/p_fiveseven.mdl");
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/p_glock18.mdl");
-
-	if (AreRunningCZero())
-	{
-		vMin = Vector(-26, -19, -21);
-		vMax = Vector(26, 23, 21);
-	}
-	else
-	{
-		vMin = Vector(-25, -19, -21);
-		vMax = Vector(25, 23, 21);
-	}
-
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/p_xm1014.mdl");
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/p_m3.mdl");
-
-	if (AreRunningCZero())
-	{
-		vMin = Vector(-23, -9, -20);
-		vMax = Vector(23, 17, 20);
-	}
-	else
-	{
-		vMin = Vector(-23, -8, -20);
-		vMax = Vector(23, 8, 20);
-	}
-
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/p_mac10.mdl");
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/p_mp5.mdl");
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/p_ump45.mdl");
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/p_tmp.mdl");
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/p_p90.mdl");
-
-	if (AreRunningCZero())
-	{
-		vMin = Vector(-38, -33, -22);
-		vMax = Vector(38, 15, 35);
-	}
-	else
-	{
-		vMin = Vector(-31, -8, -21);
-		vMax = Vector(31, 12, 31);
-	}
-
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/p_ak47.mdl");
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/p_aug.mdl");
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/p_awp.mdl");
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/p_g3sg1.mdl");
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/p_sg550.mdl");
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/p_m4a1.mdl");
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/p_scout.mdl");
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/p_sg552.mdl");
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/p_famas.mdl");
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/p_galil.mdl");
-
-	if (AreRunningCZero())
-	{
-		vMin = Vector(-30, -10, -20);
-		vMax = Vector(30, 11, 20);
-	}
-	else
-	{
-		vMin = Vector(-24, -10, -20);
-		vMax = Vector(25, 10, 20);
-	}
-
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/p_m249.mdl");
-
-	vMin = Vector(-7, -7, -15);
-	vMax = Vector(7, 7, 15);
-
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/p_c4.mdl");
-
-	vMin = Vector(-4, -8, -3);
-	vMax = Vector(3, 7, 3);
-
-	if (AreRunningCZero())
-	{
-		vMin = Vector(-17, -8, -3);
-		vMax = Vector(17, 7, 3);
-	}
-	else
-	{
-		vMin = Vector(-4, -8, -3);
-		vMax = Vector(3, 7, 3);
-	}
-
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/w_c4.mdl");
-
-	if (AreRunningCZero())
-	{
-		vMin = Vector(-7, -3, -18);
-		vMax = Vector(7, 2, 18);
-	}
-	else
-	{
-		vMin = Vector(-7, -2, -18);
-		vMax = Vector(7, 2, 18);
-	}
-
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/p_flashbang.mdl");
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/p_hegrenade.mdl");
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/p_smokegrenade.mdl");
-
-	if (AreRunningCZero())
-		vMin = Vector(-5, -5, -7);
-	else
-		vMin = Vector(-5, -5, -5);
-
-	vMax = Vector(5, 5, 14);
-
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/w_flashbang.mdl");
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/w_hegrenade.mdl");
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/w_smokegrenade.mdl");
-
-	vMin = Vector(-7, -11, -18);
-	vMax = Vector(7, 6, 18);
-
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/p_knife.mdl");
-
-	if (AreRunningCZero())
-	{
-		vMin = Vector(-21, -25, -54);
-		vMax = Vector(21, 23, 24);
-	}
-	else
-	{
-		vMin = Vector(-16, -8, -54);
-		vMax = Vector(16, 6, 24);
-	}
-
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/shield/p_shield_deagle.mdl");
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/shield/p_shield_fiveseven.mdl");
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/shield/p_shield_flashbang.mdl");
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/shield/p_shield_glock18.mdl");
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/shield/p_shield_hegrenade.mdl");
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/shield/p_shield_knife.mdl");
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/shield/p_shield_p228.mdl");
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/shield/p_shield_smokegrenade.mdl");
-	ENGINE_FORCE_UNMODIFIED(force_model_specifybounds, (float *)&vMin, (float *)&vMax, "models/shield/p_shield_usp.mdl");
-
-	PRECACHE_SOUND("common/wpn_hudoff.wav");
-	PRECACHE_SOUND("common/wpn_hudon.wav");
-	PRECACHE_SOUND("common/wpn_moveselect.wav");
-	PRECACHE_SOUND("common/wpn_select.wav");
-	PRECACHE_SOUND("common/wpn_denyselect.wav");
 	PRECACHE_SOUND("player/geiger6.wav");
 	PRECACHE_SOUND("player/geiger5.wav");
 	PRECACHE_SOUND("player/geiger4.wav");
@@ -4288,6 +3951,7 @@ void ClientPrecache()
 	PRECACHE_SOUND("player/geiger1.wav");
 
 	g_iShadowSprite = PRECACHE_MODEL("sprites/shadow_circle.spr");
+	PRECACHE_MODEL("models/player/zombie_classic/zombie_classic.mdl");
 
 	PRECACHE_MODEL("sprites/wall_puff1.spr");
 	PRECACHE_MODEL("sprites/wall_puff2.spr");
@@ -4674,224 +4338,73 @@ BOOL EXT_FUNC AddToFullPack(struct entity_state_s *state, int e, edict_t *ent, e
 	return TRUE;
 }
 
-// Creates baselines used for network encoding, especially for player data since players are not spawned until connect time.
-void EXT_FUNC CreateBaseline(int player, int eindex, struct entity_state_s *baseline, edict_t *entity, int playermodelindex, Vector player_mins, Vector player_maxs)
+void CreateBaseline(int player, int eindex, struct entity_state_s *baseline, edict_t *entity, int playermodelindex, Vector player_mins, Vector player_maxs)
 {
-	baseline->origin = entity->v.origin;
-	baseline->angles = entity->v.angles;
+	if (!baseline || !entity)
+		return;
 
+	Q_memset(baseline, 0, sizeof(*baseline));
+
+	baseline->number = eindex;
+	baseline->modelindex = entity->v.modelindex;
+	baseline->mins = entity->v.mins;
+	baseline->maxs = entity->v.maxs;
+	baseline->solid = entity->v.solid;
+	baseline->movetype = entity->v.movetype;
+	baseline->sequence = entity->v.sequence;
 	baseline->frame = entity->v.frame;
-	baseline->skin = (short)entity->v.skin;
-
-	// render information
-	baseline->rendermode = byte(entity->v.rendermode);
-	baseline->renderamt = byte(entity->v.renderamt);
-	baseline->rendercolor.r	= byte(entity->v.rendercolor.x);
-	baseline->rendercolor.g	= byte(entity->v.rendercolor.y);
-	baseline->rendercolor.b	= byte(entity->v.rendercolor.z);
-	baseline->renderfx = byte(entity->v.renderfx);
+	baseline->colormap = entity->v.colormap;
+	baseline->rendermode = entity->v.rendermode;
+	baseline->renderamt = entity->v.renderamt;
+	baseline->rendercolor.r = (byte)entity->v.rendercolor.x;
+	baseline->rendercolor.g = (byte)entity->v.rendercolor.y;
+	baseline->rendercolor.b = (byte)entity->v.rendercolor.z;
+	baseline->renderfx = entity->v.renderfx;
+	baseline->scale = entity->v.scale;
+	baseline->skin = entity->v.skin;
+	baseline->effects = entity->v.effects;
+	baseline->framerate = entity->v.framerate;
+	baseline->body = entity->v.body;
+	baseline->controller[0] = entity->v.controller[0];
+	baseline->controller[1] = entity->v.controller[1];
+	baseline->controller[2] = entity->v.controller[2];
+	baseline->controller[3] = entity->v.controller[3];
+	baseline->blending[0] = entity->v.blending[0];
+	baseline->blending[1] = entity->v.blending[1];
+	baseline->origin[0] = entity->v.origin[0];
+	baseline->origin[1] = entity->v.origin[1];
+	baseline->origin[2] = entity->v.origin[2];
+	baseline->angles[0] = entity->v.angles[0];
+	baseline->angles[1] = entity->v.angles[1];
+	baseline->angles[2] = entity->v.angles[2];
 
 	if (player)
 	{
+		baseline->modelindex = playermodelindex;
 		baseline->mins = player_mins;
 		baseline->maxs = player_maxs;
-
-		baseline->colormap = eindex;
-		baseline->modelindex = playermodelindex;
-		baseline->friction = 1.0;
-		baseline->movetype = MOVETYPE_WALK;
-
-		baseline->solid = SOLID_SLIDEBOX;
-		baseline->scale = entity->v.scale;
-		baseline->framerate = 1.0;
-		baseline->gravity = 1.0;
-	}
-	else
-	{
-		baseline->mins = entity->v.mins;
-		baseline->maxs = entity->v.maxs;
-
-		baseline->colormap = 0;
-		baseline->modelindex = entity->v.modelindex;
-		baseline->movetype = entity->v.movetype;
-
-		baseline->scale = entity->v.scale;
-		baseline->solid = entity->v.solid;
-		baseline->framerate = entity->v.framerate;
-		baseline->gravity = entity->v.gravity;
 	}
 }
 
-void Entity_FieldInit(struct delta_s *pFields)
+void RegisterEncoders()
 {
-	entity_field_alias[FIELD_ORIGIN0].field = DELTA_FINDFIELD(pFields, entity_field_alias[FIELD_ORIGIN0].name);
-	entity_field_alias[FIELD_ORIGIN1].field = DELTA_FINDFIELD(pFields, entity_field_alias[FIELD_ORIGIN1].name);
-	entity_field_alias[FIELD_ORIGIN2].field = DELTA_FINDFIELD(pFields, entity_field_alias[FIELD_ORIGIN2].name);
-	entity_field_alias[FIELD_ANGLES0].field = DELTA_FINDFIELD(pFields, entity_field_alias[FIELD_ANGLES0].name);
-	entity_field_alias[FIELD_ANGLES1].field = DELTA_FINDFIELD(pFields, entity_field_alias[FIELD_ANGLES1].name);
-	entity_field_alias[FIELD_ANGLES2].field = DELTA_FINDFIELD(pFields, entity_field_alias[FIELD_ANGLES2].name);
 }
 
-// Callback for sending entity_state_t info over network.
-void Entity_Encode(struct delta_s *pFields, const unsigned char *from, const unsigned char *to)
+// Creates baselines used for network encoding, especially for player data since players are not spawned until connect time.
+void EXT_FUNC CreateInstancedBaselines()
 {
-	entity_state_t *f, *t;
-	int localplayer = 0;
-	static int initialized = 0;
+#ifndef REGAMEDLL_FIXES
+	int iret = 0;
+	entity_state_t state;
 
-	if (!initialized)
-	{
-		Entity_FieldInit(pFields);
-		initialized = 1;
-	}
+	Q_memset(&state, 0, sizeof(state));
 
-	f = (entity_state_t *)from;
-	t = (entity_state_t *)to;
+	// Create any additional baselines here for things like grendates, etc.
+	// iret = ENGINE_INSTANCE_BASELINE(pc->pev->classname, &state);
 
-	// Never send origin to local player, it's sent with more resolution in clientdata_t structure
-	localplayer = (t->number - 1) == ENGINE_CURRENT_PLAYER();
-
-	if (localplayer)
-	{
-		DELTA_UNSETBYINDEX(pFields, entity_field_alias[FIELD_ORIGIN0].field);
-		DELTA_UNSETBYINDEX(pFields, entity_field_alias[FIELD_ORIGIN1].field);
-		DELTA_UNSETBYINDEX(pFields, entity_field_alias[FIELD_ORIGIN2].field);
-	}
-	if (t->impacttime != 0 && t->starttime != 0)
-	{
-		DELTA_UNSETBYINDEX(pFields, entity_field_alias[FIELD_ORIGIN0].field);
-		DELTA_UNSETBYINDEX(pFields, entity_field_alias[FIELD_ORIGIN1].field);
-		DELTA_UNSETBYINDEX(pFields, entity_field_alias[FIELD_ORIGIN2].field);
-
-		DELTA_UNSETBYINDEX(pFields, entity_field_alias[FIELD_ANGLES0].field);
-		DELTA_UNSETBYINDEX(pFields, entity_field_alias[FIELD_ANGLES1].field);
-		DELTA_UNSETBYINDEX(pFields, entity_field_alias[FIELD_ANGLES2].field);
-	}
-	if (t->movetype == MOVETYPE_FOLLOW && t->aiment != 0)
-	{
-		DELTA_UNSETBYINDEX(pFields, entity_field_alias[FIELD_ORIGIN0].field);
-		DELTA_UNSETBYINDEX(pFields, entity_field_alias[FIELD_ORIGIN1].field);
-		DELTA_UNSETBYINDEX(pFields, entity_field_alias[FIELD_ORIGIN2].field);
-	}
-	else if (t->aiment != f->aiment)
-	{
-		DELTA_SETBYINDEX(pFields, entity_field_alias[FIELD_ORIGIN0].field);
-		DELTA_SETBYINDEX(pFields, entity_field_alias[FIELD_ORIGIN1].field);
-		DELTA_SETBYINDEX(pFields, entity_field_alias[FIELD_ORIGIN2].field);
-	}
-}
-
-void Player_FieldInit(struct delta_s *pFields)
-{
-	player_field_alias[FIELD_ORIGIN0].field = DELTA_FINDFIELD(pFields, player_field_alias[FIELD_ORIGIN0].name);
-	player_field_alias[FIELD_ORIGIN1].field = DELTA_FINDFIELD(pFields, player_field_alias[FIELD_ORIGIN1].name);
-	player_field_alias[FIELD_ORIGIN2].field = DELTA_FINDFIELD(pFields, player_field_alias[FIELD_ORIGIN2].name);
-}
-
-// Callback for sending entity_state_t for players info over network.
-void Player_Encode(struct delta_s *pFields, const unsigned char *from, const unsigned char *to)
-{
-	entity_state_t *f, *t;
-	int localplayer = 0;
-
-	static int initialized = 0;
-	if (!initialized)
-	{
-		Player_FieldInit(pFields);
-		initialized = 1;
-	}
-
-	f = (entity_state_t *)from;
-	t = (entity_state_t *)to;
-
-	// Never send origin to local player, it's sent with more resolution in clientdata_t structure
-	localplayer = (t->number - 1) == ENGINE_CURRENT_PLAYER();
-
-	if (localplayer)
-	{
-		DELTA_UNSETBYINDEX(pFields, entity_field_alias[FIELD_ORIGIN0].field);
-		DELTA_UNSETBYINDEX(pFields, entity_field_alias[FIELD_ORIGIN1].field);
-		DELTA_UNSETBYINDEX(pFields, entity_field_alias[FIELD_ORIGIN2].field);
-	}
-	if (t->movetype == MOVETYPE_FOLLOW && t->aiment != 0)
-	{
-		DELTA_UNSETBYINDEX(pFields, entity_field_alias[FIELD_ORIGIN0].field);
-		DELTA_UNSETBYINDEX(pFields, entity_field_alias[FIELD_ORIGIN1].field);
-		DELTA_UNSETBYINDEX(pFields, entity_field_alias[FIELD_ORIGIN2].field);
-	}
-	else if (t->aiment != f->aiment)
-	{
-		DELTA_SETBYINDEX(pFields, entity_field_alias[FIELD_ORIGIN0].field);
-		DELTA_SETBYINDEX(pFields, entity_field_alias[FIELD_ORIGIN1].field);
-		DELTA_SETBYINDEX(pFields, entity_field_alias[FIELD_ORIGIN2].field);
-	}
-}
-
-void Custom_Entity_FieldInit(delta_s *pFields)
-{
-	custom_entity_field_alias[CUSTOMFIELD_ORIGIN0].field = DELTA_FINDFIELD(pFields, custom_entity_field_alias[CUSTOMFIELD_ORIGIN0].name);
-	custom_entity_field_alias[CUSTOMFIELD_ORIGIN1].field = DELTA_FINDFIELD(pFields, custom_entity_field_alias[CUSTOMFIELD_ORIGIN1].name);
-	custom_entity_field_alias[CUSTOMFIELD_ORIGIN2].field = DELTA_FINDFIELD(pFields, custom_entity_field_alias[CUSTOMFIELD_ORIGIN2].name);
-	custom_entity_field_alias[CUSTOMFIELD_ANGLES0].field = DELTA_FINDFIELD(pFields, custom_entity_field_alias[CUSTOMFIELD_ANGLES0].name);
-	custom_entity_field_alias[CUSTOMFIELD_ANGLES1].field = DELTA_FINDFIELD(pFields, custom_entity_field_alias[CUSTOMFIELD_ANGLES1].name);
-	custom_entity_field_alias[CUSTOMFIELD_ANGLES2].field = DELTA_FINDFIELD(pFields, custom_entity_field_alias[CUSTOMFIELD_ANGLES2].name);
-	custom_entity_field_alias[CUSTOMFIELD_SKIN].field = DELTA_FINDFIELD(pFields, custom_entity_field_alias[CUSTOMFIELD_SKIN].name);
-	custom_entity_field_alias[CUSTOMFIELD_SEQUENCE].field = DELTA_FINDFIELD(pFields, custom_entity_field_alias[CUSTOMFIELD_SEQUENCE].name);
-	custom_entity_field_alias[CUSTOMFIELD_ANIMTIME].field = DELTA_FINDFIELD(pFields, custom_entity_field_alias[CUSTOMFIELD_ANIMTIME].name);
-}
-
-// Callback for sending entity_state_t info ( for custom entities ) over network.
-void Custom_Encode(struct delta_s *pFields, const unsigned char *from, const unsigned char *to)
-{
-	entity_state_t *f, *t;
-	int beamType;
-	static int initialized = 0;
-
-	if (!initialized)
-	{
-		Custom_Entity_FieldInit(pFields);
-		initialized = 1;
-	}
-
-	f = (entity_state_t *)from;
-	t = (entity_state_t *)to;
-
-	beamType = t->rendermode & 0x0F;
-
-	if (beamType != BEAM_POINTS)
-	{
-		if (beamType != BEAM_ENTPOINT)
-		{
-			DELTA_UNSETBYINDEX(pFields, custom_entity_field_alias[CUSTOMFIELD_ORIGIN0].field);
-			DELTA_UNSETBYINDEX(pFields, custom_entity_field_alias[CUSTOMFIELD_ORIGIN1].field);
-			DELTA_UNSETBYINDEX(pFields, custom_entity_field_alias[CUSTOMFIELD_ORIGIN2].field);
-		}
-
-		DELTA_UNSETBYINDEX(pFields, custom_entity_field_alias[CUSTOMFIELD_ANGLES0].field);
-		DELTA_UNSETBYINDEX(pFields, custom_entity_field_alias[CUSTOMFIELD_ANGLES1].field);
-		DELTA_UNSETBYINDEX(pFields, custom_entity_field_alias[CUSTOMFIELD_ANGLES2].field);
-	}
-
-	if (beamType != BEAM_ENTS && beamType != BEAM_ENTPOINT)
-	{
-		DELTA_UNSETBYINDEX(pFields, custom_entity_field_alias[CUSTOMFIELD_SKIN].field);
-		DELTA_UNSETBYINDEX(pFields, custom_entity_field_alias[CUSTOMFIELD_SEQUENCE].field);
-	}
-
-	// animtime is compared by rounding first
-	// see if we really shouldn't actually send it
-	if (int(f->animtime) == int(t->animtime))
-	{
-		DELTA_UNSETBYINDEX(pFields, custom_entity_field_alias[CUSTOMFIELD_ANIMTIME].field);
-	}
-}
-
-// Allows game .dll to override network encoding of certain types of entities and tweak values, etc.
-void EXT_FUNC RegisterEncoders()
-{
-	DELTA_ADDENCODER("Entity_Encode", Entity_Encode);
-	DELTA_ADDENCODER("Custom_Encode", Custom_Encode);
-	DELTA_ADDENCODER("Player_Encode", Player_Encode);
+	// Destroy objects.
+	// UTIL_Remove(pc);
+#endif
 }
 
 int EXT_FUNC GetWeaponData(edict_t *pEdict, struct weapon_data_s *info)
@@ -5194,6 +4707,7 @@ BOOL EXT_FUNC GetHullBounds(int hullnumber, float *mins, float *maxs)
 
 // Create pseudo-baselines for items that aren't placed in the map at spawn time, but which are likely
 // to be created during play ( e.g., grenades, ammo packs, projectiles, corpses, etc. )
+#if 0
 void EXT_FUNC CreateInstancedBaselines()
 {
 #ifndef REGAMEDLL_FIXES
@@ -5209,6 +4723,7 @@ void EXT_FUNC CreateInstancedBaselines()
 	// UTIL_Remove(pc);
 #endif
 }
+#endif
 
 int EXT_FUNC InconsistentFile(const edict_t *pEdict, const char *filename, char *disconnect_message)
 {

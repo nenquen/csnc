@@ -401,7 +401,7 @@ void CCareerTaskManager::Reset(bool deleteTasks)
 	m_finishedTaskRound = 0;
 	m_shouldLatchRoundEndMessage = false;
 
-	m_roundStartTime = gpGlobals->time + freezetime.value;
+	m_roundStartTime = gpGlobals->time;
 }
 
 void CCareerTaskManager::SetFinishedTaskTime(int val)

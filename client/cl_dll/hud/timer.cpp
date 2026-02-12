@@ -61,6 +61,9 @@ int CHudTimer::Draw( float fTime )
 	if ( ( gHUD.m_iHideHUDDisplay & HIDEHUD_HEALTH ) )
         return 1;
 
+	if ( ( gHUD.m_iHideHUDDisplay & HIDEHUD_TIMER ) )
+		return 1;
+
 	if (!(gHUD.m_iWeaponBits & (1<<(WEAPON_SUIT)) ))
 		return 1;
 	int r, g, b;

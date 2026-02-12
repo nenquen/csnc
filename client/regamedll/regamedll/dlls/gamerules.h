@@ -296,6 +296,7 @@ public:
 	// Client damage rules
 	virtual float FlPlayerFallDamage(CBasePlayer *pPlayer) = 0;
 	virtual BOOL FPlayerCanTakeDamage(CBasePlayer *pPlayer, CBaseEntity *pAttacker) { return TRUE; }		// can this player take damage from this attacker?
+	virtual void InfectPlayer(CBasePlayer *pVictim) {}
 	virtual BOOL ShouldAutoAim(CBasePlayer *pPlayer, edict_t *target) { return TRUE; }
 
 	// Client spawn/respawn control
@@ -484,6 +485,8 @@ class CHalfLifeMultiplay: public CGameRules
 {
 public:
 	CHalfLifeMultiplay();
+
+	BOOL IsFreezePeriod() override { return FALSE; }
 	virtual ~CHalfLifeMultiplay() {};
 
 	virtual void RefreshSkillData();
@@ -763,7 +766,7 @@ public:
 	float m_fRoundStartTime;			// Time round has started (deprecated name m_fRoundCount)
 	int m_iRoundTime;					// (From mp_roundtime) - How many seconds long this round is.
 	int m_iRoundTimeSecs;
-	int m_iIntroRoundTime;				// (From mp_freezetime) - How many seconds long the intro round (when players are frozen) is.
+	int m_iIntroRoundTime;
 	float m_fRoundStartTimeReal;		// The global time when the intro round ends and the real one starts
 										// wrote the original "m_flRoundTime" comment for this variable).
 	int m_iAccountTerrorist;

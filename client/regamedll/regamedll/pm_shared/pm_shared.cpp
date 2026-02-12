@@ -173,6 +173,15 @@ void EXT_FUNC __API_HOOK(PM_PlayStepSound)(int step, float fvol)
 	static int iSkipStep = 0;
 	int irand;
 
+#ifdef REGAMEDLL_API
+	if (pmoveplayer)
+	{
+		CBasePlayer *pBase = pmoveplayer->BasePlayer();
+		if (pBase && pBase->m_bIsZombie)
+			return;
+	}
+#endif
+
 	pmove->iStepLeft = !pmove->iStepLeft;
 
 	if (!pmove->runfuncs)
@@ -2122,7 +2131,7 @@ void EXT_FUNC __API_HOOK(PM_Duck)()
 
 #ifdef REGAMEDLL_ADD
 	if ((pmove->iuser3 & PLAYER_PREVENT_DUCK) == PLAYER_PREVENT_DUCK       // Prevent ducking if the iuser3 variable is contain PLAYER_PREVENT_DUCK
-	|| (freezetime_duck.value == 0.0f && CSGameRules()->IsFreezePeriod())) // Prevent ducking during freezetime if the freezetime_duck cvar is 0
+	)
 	{
 		// Try to unduck
 		if (pmove->flags & FL_DUCKING)
@@ -2693,7 +2702,7 @@ void EXT_FUNC __API_HOOK(PM_Jump)()
 
 #ifdef REGAMEDLL_ADD
 	if ((pmove->iuser3 & PLAYER_PREVENT_JUMP) == PLAYER_PREVENT_JUMP       // Prevent jumping if the iuser3 variable is contain PLAYER_PREVENT_JUMP
-	|| (freezetime_jump.value == 0.0f && CSGameRules()->IsFreezePeriod())) // Prevent jumping during freezetime if the freezetime_jump cvar is 0
+	)
 	{
 		return;
 	}

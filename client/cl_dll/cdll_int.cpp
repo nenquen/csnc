@@ -62,6 +62,7 @@ int DLLEXPORT Initialize( cl_enginefunc_t *pEnginefuncs, int iVersion )
 		return 0;
 
 	gEngfuncs = *pEnginefuncs;
+	gEngfuncs.pfnConsolePrint("[ZB3] client.dll Initialize\n");
 
 	g_iXash = (int)CVAR_GET_FLOAT("build");
 	g_iXashFWGS = (int)CVAR_GET_FLOAT("host_build");
@@ -213,6 +214,8 @@ the hud variables.
 void DLLEXPORT HUD_Init( void )
 {
 	InitInput();
+	gEngfuncs.pfnConsolePrint("[ZB3] HUD_Init\n");
+	gEngfuncs.pfnCenterPrint("[ZB3] client.dll loaded");
 	gHUD.Init();
 	//Scheme_Init();
 }

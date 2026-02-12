@@ -277,7 +277,7 @@ void CHalfLifeMultiplay::ReadMultiplayCvars()
 {
 	m_iRoundTime = int(CVAR_GET_FLOAT("mp_roundtime") * 60);
 	m_iC4Timer = int(CVAR_GET_FLOAT("mp_c4timer"));
-	m_iIntroRoundTime = int(CVAR_GET_FLOAT("mp_freezetime"));
+	m_iIntroRoundTime = 0;
 	m_iLimitTeams = int(CVAR_GET_FLOAT("mp_limitteams"));
 
 #ifndef REGAMEDLL_ADD
@@ -290,17 +290,6 @@ void CHalfLifeMultiplay::ReadMultiplayCvars()
 	{
 		CVAR_SET_FLOAT("mp_roundtime", 1);
 		m_iRoundTime = 60;
-	}
-
-	if (m_iIntroRoundTime > 60)
-	{
-		CVAR_SET_FLOAT("mp_freezetime", 60);
-		m_iIntroRoundTime = 60;
-	}
-	else if (m_iIntroRoundTime < 0)
-	{
-		CVAR_SET_FLOAT("mp_freezetime", 0);
-		m_iIntroRoundTime = 0;
 	}
 
 	if (m_iC4Timer > 90)
@@ -337,11 +326,6 @@ void CHalfLifeMultiplay::ReadMultiplayCvars()
 		CVAR_SET_FLOAT("mp_roundtime", 0);
 		m_iRoundTime = 0;
 	}
-	if (m_iIntroRoundTime < 0)
-	{
-		CVAR_SET_FLOAT("mp_freezetime", 0);
-		m_iIntroRoundTime = 0;
-	}
 	if (m_iC4Timer < 0)
 	{
 		CVAR_SET_FLOAT("mp_c4timer", 0);
@@ -365,7 +349,7 @@ void CHalfLifeMultiplay::ReadMultiplayCvars()
 
 CHalfLifeMultiplay::CHalfLifeMultiplay()
 {
-	m_bFreezePeriod = TRUE;
+	m_bFreezePeriod = FALSE;
 
 	m_VoiceGameMgr.Init(&g_GameMgrHelper, gpGlobals->maxClients);
 	RefreshSkillData();
@@ -457,7 +441,8 @@ CHalfLifeMultiplay::CHalfLifeMultiplay()
 
 	ReadMultiplayCvars();
 
-	m_iIntroRoundTime += 2;
+	if (m_iIntroRoundTime > 0)
+		m_iIntroRoundTime += 2;
 
 #ifdef REGAMEDLL_FIXES
 	m_fMaxIdlePeriod = (((m_iRoundTime < 60) ? 60 : m_iRoundTime) * 2);
@@ -472,7 +457,7 @@ CHalfLifeMultiplay::CHalfLifeMultiplay()
 	}
 
 	m_bInCareerGame = false;
-	m_iRoundTimeSecs = m_iIntroRoundTime;
+	m_iRoundTimeSecs = m_iRoundTime;
 
 	if (IS_DEDICATED_SERVER())
 	{
@@ -1830,7 +1815,7 @@ void EXT_FUNC CHalfLifeMultiplay::__API_HOOK(RestartRound)()
 		}
 	}
 
-	m_bFreezePeriod = TRUE;
+	m_bFreezePeriod = FALSE;
 	m_bRoundTerminating = false;
 
 	ReadMultiplayCvars();
@@ -1847,8 +1832,8 @@ void EXT_FUNC CHalfLifeMultiplay::__API_HOOK(RestartRound)()
 		m_fMaxIdlePeriod = (m_iRoundTime * 2);
 #endif
 
-	// This makes the round timer function as the intro timer on the client side
-	m_iRoundTimeSecs = m_iIntroRoundTime;
+	// Round timer always uses real round time
+	m_iRoundTimeSecs = m_iRoundTime;
 
 	// Check to see if there's a mapping info paramater entity
 	if (g_pMapInfo)
@@ -2519,7 +2504,7 @@ void EXT_FUNC CHalfLifeMultiplay::__API_HOOK(Think)()
 						}
 					}
 
-					m_bFreezePeriod = TRUE;
+					m_bFreezePeriod = FALSE;
 
 					for (int i = 1; i <= gpGlobals->maxClients; i++)
 					{

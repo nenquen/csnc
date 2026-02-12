@@ -1,5 +1,76 @@
 #include "precompiled.h"
 
+#ifdef REGAMEDLL_ADD
+static bool IsFreeSpawnSpace(const Vector &vecOrigin, int iHullNumber, edict_t *pSkipEnt = nullptr)
+{
+	if (UTIL_PointContents(vecOrigin) != CONTENTS_EMPTY)
+		return false;
+
+	TraceResult trace;
+	UTIL_TraceHull(vecOrigin, vecOrigin, dont_ignore_monsters, iHullNumber, pSkipEnt, &trace);
+
+	return (!trace.fStartSolid && !trace.fAllSolid && trace.fInOpen);
+}
+
+static bool SpawnPointTooClose(const Vector &vecOrigin, float radius)
+{
+	CBaseEntity *pEntity = nullptr;
+	while ((pEntity = UTIL_FindEntityInSphere(pEntity, vecOrigin, radius)))
+	{
+		if (!UTIL_IsValidEntity(pEntity->edict()))
+			continue;
+
+		if (FClassnameIs(pEntity->edict(), "info_spawn_point"))
+			return true;
+	}
+
+	return false;
+}
+
+static void GenerateSpawnPointsFromWorldGeometry(const Vector &worldMins, const Vector &worldMaxs)
+{
+	UTIL_RemoveOther("info_spawn_point");
+
+	const int maxSpawnPoints = 128;
+	const int maxAttempts = 4096;
+	const float minNearbySpawnPoint = 128.0f;
+
+	int created = 0;
+	for (int attempt = 0; attempt < maxAttempts && created < maxSpawnPoints; ++attempt)
+	{
+		const float x = RANDOM_FLOAT(worldMins.x, worldMaxs.x);
+		const float y = RANDOM_FLOAT(worldMins.y, worldMaxs.y);
+		const float zTop = worldMaxs.z - 16.0f;
+
+		Vector vecStart(x, y, zTop);
+		Vector vecEnd(x, y, worldMins.z + 16.0f);
+
+		TraceResult tr;
+		UTIL_TraceLine(vecStart, vecEnd, ignore_monsters, nullptr, &tr);
+		if (tr.fAllSolid || tr.fStartSolid)
+			continue;
+		if (tr.flFraction >= 1.0f)
+			continue;
+
+		Vector vecOrigin = tr.vecEndPos + Vector(0, 0, 1);
+		if (UTIL_PointContents(vecOrigin) != CONTENTS_EMPTY)
+			continue;
+
+		if (!IsFreeSpawnSpace(vecOrigin + Vector(0, 0, HalfHumanHeight + 5), human_hull))
+			continue;
+		if (SpawnPointTooClose(vecOrigin, minNearbySpawnPoint))
+			continue;
+
+		const float yaw = RANDOM_FLOAT(0.0f, 360.0f);
+		CBaseEntity *pPoint = CBaseEntity::Create("info_spawn_point", vecOrigin, Vector(0, yaw, 0), nullptr);
+		if (pPoint)
+			++created;
+	}
+
+	CONSOLE_ECHO("Generated spawn points: %i\n", created);
+}
+#endif
+
 edict_t *g_pBodyQueueHead;
 CGlobalState gGlobalState;
 
@@ -290,6 +361,13 @@ void CWorld::Precache()
 	// Set up game rules
 	FreeGameRules(&g_pGameRules);
 	g_pGameRules = InstallGameRules();
+
+#ifdef REGAMEDLL_ADD
+	if (randomspawn.value > 0.0f)
+	{
+		GenerateSpawnPointsFromWorldGeometry(pev->mins, pev->maxs);
+	}
+#endif
 
 	// NOTE: What is the essence of soundent in CS 1.6? I think this is for NPC monsters - s1lent
 #ifndef REGAMEDLL_FIXES

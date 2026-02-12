@@ -34,6 +34,7 @@ void CKnife::Precache()
 {
 	PRECACHE_MODEL("models/v_knife.mdl");
 	PRECACHE_MODEL("models/shield/v_shield_knife.mdl");
+	PRECACHE_MODEL("models/csnc/v_zombie_classic.mdl");
 	PRECACHE_MODEL("models/w_knife.mdl");
 
 	PRECACHE_SOUND("weapons/knife_deploy1.wav");
@@ -45,6 +46,15 @@ void CKnife::Precache()
 	PRECACHE_SOUND("weapons/knife_slash2.wav");
 	PRECACHE_SOUND("weapons/knife_stab.wav");
 	PRECACHE_SOUND("weapons/knife_hitwall1.wav");
+	PRECACHE_SOUND("csnc/zombie_swing_1.wav");
+	PRECACHE_SOUND("csnc/zombie_swing_2.wav");
+	PRECACHE_SOUND("csnc/zombie_swing_3.wav");
+	PRECACHE_SOUND("csnc/zombie_wall_1.wav");
+	PRECACHE_SOUND("csnc/zombie_wall_2.wav");
+	PRECACHE_SOUND("csnc/zombie_wall_3.wav");
+	PRECACHE_SOUND("csnc/zombie_attack_1.wav");
+	PRECACHE_SOUND("csnc/zombie_attack_2.wav");
+	PRECACHE_SOUND("csnc/zombie_attack_3.wav");
 
 	m_usKnife = PRECACHE_EVENT(1, "events/knife.sc");
 
@@ -92,7 +102,7 @@ BOOL CKnife::Deploy()
 		return DefaultDeploy("models/shield/v_shield_knife.mdl", "models/shield/p_shield_knife.mdl", KNIFE_SHIELD_DRAW, "shieldknife", UseDecrement() != FALSE);
 	}
 	else
-		return DefaultDeploy("models/v_knife.mdl", "models/p_knife.mdl", KNIFE_DRAW, "knife", UseDecrement() != FALSE);
+		return DefaultDeploy(m_pPlayer->m_bIsZombie ? "models/csnc/v_zombie_classic.mdl" : "models/v_knife.mdl", "models/p_knife.mdl", KNIFE_DRAW, "knife", UseDecrement() != FALSE);
 }
 
 void CKnife::Holster(int skiplocal)
@@ -316,6 +326,17 @@ BOOL CKnife::Swing(BOOL fFirst)
 	{
 		if (fFirst)
 		{
+			if (m_pPlayer->m_bIsZombie && gmsgZB3Claw)
+			{
+				MESSAGE_BEGIN(MSG_PVS, gmsgZB3Claw, (const float *)&vecEnd, (edict_t *)nullptr);
+					WRITE_COORD(vecEnd.x);
+					WRITE_COORD(vecEnd.y);
+					WRITE_COORD(vecEnd.z);
+					WRITE_ANGLE(m_pPlayer->pev->v_angle.x);
+					WRITE_ANGLE(m_pPlayer->pev->v_angle.y);
+				MESSAGE_END();
+			}
+
 			if (!m_pPlayer->HasShield())
 			{
 				switch ((m_iSwing++) % 2)
@@ -339,11 +360,24 @@ BOOL CKnife::Swing(BOOL fFirst)
 			m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 2.0f;
 
 			// play wiff or swish sound
+			const char *swingSound = nullptr;
+			if (m_pPlayer->m_bIsZombie)
+			{
+				switch (RANDOM_LONG(1, 3))
+				{
+				case 1: swingSound = "csnc/zombie_swing_1.wav"; break;
+				case 2: swingSound = "csnc/zombie_swing_2.wav"; break;
+				default: swingSound = "csnc/zombie_swing_3.wav"; break;
+				}
+			}
+			else
+			{
+				swingSound = RANDOM_LONG(0, 1) ? "weapons/knife_slash1.wav" : "weapons/knife_slash2.wav";
+			}
+
 			EMIT_SOUND_DYN(m_pPlayer->edict(),
 				CHAN_WEAPON,
-				RANDOM_LONG(0, 1) ?
-					"weapons/knife_slash1.wav" :
-					"weapons/knife_slash2.wav",
+				swingSound,
 				VOL_NORM,
 				ATTN_NORM,
 				0,
@@ -357,6 +391,17 @@ BOOL CKnife::Swing(BOOL fFirst)
 	{
 		// hit
 		fDidHit = TRUE;
+
+		if (m_pPlayer->m_bIsZombie && gmsgZB3Claw)
+		{
+			MESSAGE_BEGIN(MSG_PVS, gmsgZB3Claw, (const float *)&tr.vecEndPos, (edict_t *)nullptr);
+				WRITE_COORD(tr.vecEndPos.x);
+				WRITE_COORD(tr.vecEndPos.y);
+				WRITE_COORD(tr.vecEndPos.z);
+				WRITE_ANGLE(m_pPlayer->pev->v_angle.x);
+				WRITE_ANGLE(m_pPlayer->pev->v_angle.y);
+			MESSAGE_END();
+		}
 
 		if (!m_pPlayer->HasShield())
 		{
@@ -409,12 +454,24 @@ BOOL CKnife::Swing(BOOL fFirst)
 				)
 			{
 				// play thwack or smack sound
-				switch (RANDOM_LONG(0, 3))
+				if (m_pPlayer->m_bIsZombie)
 				{
-					case 0: EMIT_SOUND(m_pPlayer->edict(), CHAN_WEAPON, "weapons/knife_hit1.wav", VOL_NORM, ATTN_NORM); break;
-					case 1: EMIT_SOUND(m_pPlayer->edict(), CHAN_WEAPON, "weapons/knife_hit2.wav", VOL_NORM, ATTN_NORM); break;
-					case 2: EMIT_SOUND(m_pPlayer->edict(), CHAN_WEAPON, "weapons/knife_hit3.wav", VOL_NORM, ATTN_NORM); break;
-					case 3: EMIT_SOUND(m_pPlayer->edict(), CHAN_WEAPON, "weapons/knife_hit4.wav", VOL_NORM, ATTN_NORM); break;
+					switch (RANDOM_LONG(1, 3))
+					{
+					case 1: EMIT_SOUND(m_pPlayer->edict(), CHAN_WEAPON, "csnc/zombie_attack_1.wav", VOL_NORM, ATTN_NORM); break;
+					case 2: EMIT_SOUND(m_pPlayer->edict(), CHAN_WEAPON, "csnc/zombie_attack_2.wav", VOL_NORM, ATTN_NORM); break;
+					default: EMIT_SOUND(m_pPlayer->edict(), CHAN_WEAPON, "csnc/zombie_attack_3.wav", VOL_NORM, ATTN_NORM); break;
+					}
+				}
+				else
+				{
+					switch (RANDOM_LONG(0, 3))
+					{
+						case 0: EMIT_SOUND(m_pPlayer->edict(), CHAN_WEAPON, "weapons/knife_hit1.wav", VOL_NORM, ATTN_NORM); break;
+						case 1: EMIT_SOUND(m_pPlayer->edict(), CHAN_WEAPON, "weapons/knife_hit2.wav", VOL_NORM, ATTN_NORM); break;
+						case 2: EMIT_SOUND(m_pPlayer->edict(), CHAN_WEAPON, "weapons/knife_hit3.wav", VOL_NORM, ATTN_NORM); break;
+						case 3: EMIT_SOUND(m_pPlayer->edict(), CHAN_WEAPON, "weapons/knife_hit4.wav", VOL_NORM, ATTN_NORM); break;
+					}
 				}
 
 				m_pPlayer->m_iWeaponVolume = KNIFE_BODYHIT_VOLUME;
@@ -455,7 +512,21 @@ BOOL CKnife::Swing(BOOL fFirst)
 		else
 		{
 			// also play knife strike
-			EMIT_SOUND_DYN(m_pPlayer->edict(), CHAN_ITEM, "weapons/knife_hitwall1.wav", VOL_NORM, ATTN_NORM, 0, RANDOM_LONG(0, 3) + 98);
+			if (m_pPlayer->m_bIsZombie)
+			{
+				const char *wallSound = "csnc/zombie_wall_1.wav";
+				switch (RANDOM_LONG(1, 3))
+				{
+				case 1: wallSound = "csnc/zombie_wall_1.wav"; break;
+				case 2: wallSound = "csnc/zombie_wall_2.wav"; break;
+				default: wallSound = "csnc/zombie_wall_3.wav"; break;
+				}
+				EMIT_SOUND_DYN(m_pPlayer->edict(), CHAN_ITEM, wallSound, VOL_NORM, ATTN_NORM, 0, RANDOM_LONG(0, 3) + 98);
+			}
+			else
+			{
+				EMIT_SOUND_DYN(m_pPlayer->edict(), CHAN_ITEM, "weapons/knife_hitwall1.wav", VOL_NORM, ATTN_NORM, 0, RANDOM_LONG(0, 3) + 98);
+			}
 		}
 	}
 
@@ -509,6 +580,17 @@ BOOL CKnife::Stab(BOOL fFirst)
 	{
 		if (fFirst)
 		{
+			if (m_pPlayer->m_bIsZombie && gmsgZB3Claw)
+			{
+				MESSAGE_BEGIN(MSG_PVS, gmsgZB3Claw, (const float *)&vecEnd, (edict_t *)nullptr);
+					WRITE_COORD(vecEnd.x);
+					WRITE_COORD(vecEnd.y);
+					WRITE_COORD(vecEnd.z);
+					WRITE_ANGLE(m_pPlayer->pev->v_angle.x);
+					WRITE_ANGLE(m_pPlayer->pev->v_angle.y);
+				MESSAGE_END();
+			}
+
 			SendWeaponAnim(KNIFE_STABMISS, UseDecrement() != FALSE);
 #ifdef REGAMEDLL_FIXES
 			m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 2.0f;
@@ -518,11 +600,24 @@ BOOL CKnife::Stab(BOOL fFirst)
 			m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 1.0f;
 
 			// play wiff or swish sound
+			const char *swingSound = nullptr;
+			if (m_pPlayer->m_bIsZombie)
+			{
+				switch (RANDOM_LONG(1, 3))
+				{
+				case 1: swingSound = "csnc/zombie_swing_1.wav"; break;
+				case 2: swingSound = "csnc/zombie_swing_2.wav"; break;
+				default: swingSound = "csnc/zombie_swing_3.wav"; break;
+				}
+			}
+			else
+			{
+				swingSound = RANDOM_LONG(0, 1) ? "weapons/knife_slash1.wav" : "weapons/knife_slash2.wav";
+			}
+
 			EMIT_SOUND_DYN(m_pPlayer->edict(),
 				CHAN_WEAPON,
-				RANDOM_LONG(0, 1) ?
-					"weapons/knife_slash1.wav" :
-					"weapons/knife_slash2.wav",
+				swingSound,
 				VOL_NORM,
 				ATTN_NORM,
 				0,
@@ -536,6 +631,17 @@ BOOL CKnife::Stab(BOOL fFirst)
 	{
 		// hit
 		fDidHit = TRUE;
+
+		if (m_pPlayer->m_bIsZombie && gmsgZB3Claw)
+		{
+			MESSAGE_BEGIN(MSG_PVS, gmsgZB3Claw, (const float *)&tr.vecEndPos, (edict_t *)nullptr);
+				WRITE_COORD(tr.vecEndPos.x);
+				WRITE_COORD(tr.vecEndPos.y);
+				WRITE_COORD(tr.vecEndPos.z);
+				WRITE_ANGLE(m_pPlayer->pev->v_angle.x);
+				WRITE_ANGLE(m_pPlayer->pev->v_angle.y);
+			MESSAGE_END();
+		}
 
 		SendWeaponAnim(KNIFE_STABHIT, UseDecrement() != FALSE);
 #ifdef REGAMEDLL_FIXES
@@ -592,7 +698,19 @@ BOOL CKnife::Stab(BOOL fFirst)
 #endif
 				)
 			{
-				EMIT_SOUND(m_pPlayer->edict(), CHAN_WEAPON, "weapons/knife_stab.wav", VOL_NORM, ATTN_NORM);
+				if (m_pPlayer->m_bIsZombie)
+				{
+					switch (RANDOM_LONG(1, 3))
+					{
+					case 1: EMIT_SOUND(m_pPlayer->edict(), CHAN_WEAPON, "csnc/zombie_attack_1.wav", VOL_NORM, ATTN_NORM); break;
+					case 2: EMIT_SOUND(m_pPlayer->edict(), CHAN_WEAPON, "csnc/zombie_attack_2.wav", VOL_NORM, ATTN_NORM); break;
+					default: EMIT_SOUND(m_pPlayer->edict(), CHAN_WEAPON, "csnc/zombie_attack_3.wav", VOL_NORM, ATTN_NORM); break;
+					}
+				}
+				else
+				{
+					EMIT_SOUND(m_pPlayer->edict(), CHAN_WEAPON, "weapons/knife_stab.wav", VOL_NORM, ATTN_NORM);
+				}
 				m_pPlayer->m_iWeaponVolume = KNIFE_BODYHIT_VOLUME;
 
 				if (!pEntity->IsAlive())
@@ -632,7 +750,21 @@ BOOL CKnife::Stab(BOOL fFirst)
 		else
 		{
 			// also play knife strike
-			EMIT_SOUND_DYN(m_pPlayer->edict(), CHAN_ITEM, "weapons/knife_hitwall1.wav", VOL_NORM, ATTN_NORM, 0, RANDOM_LONG(0, 3) + 98);
+			if (m_pPlayer->m_bIsZombie)
+			{
+				const char *wallSound = "csnc/zombie_wall_1.wav";
+				switch (RANDOM_LONG(1, 3))
+				{
+				case 1: wallSound = "csnc/zombie_wall_1.wav"; break;
+				case 2: wallSound = "csnc/zombie_wall_2.wav"; break;
+				default: wallSound = "csnc/zombie_wall_3.wav"; break;
+				}
+				EMIT_SOUND_DYN(m_pPlayer->edict(), CHAN_ITEM, wallSound, VOL_NORM, ATTN_NORM, 0, RANDOM_LONG(0, 3) + 98);
+			}
+			else
+			{
+				EMIT_SOUND_DYN(m_pPlayer->edict(), CHAN_ITEM, "weapons/knife_hitwall1.wav", VOL_NORM, ATTN_NORM, 0, RANDOM_LONG(0, 3) + 98);
+			}
 		}
 	}
 

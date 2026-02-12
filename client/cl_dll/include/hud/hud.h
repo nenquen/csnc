@@ -954,9 +954,9 @@ public:
 	CHudMenu        m_Menu;
 	CHudAmmoSecondary m_AmmoSecondary;
 	CHudTextMessage m_TextMessage;
-	CHudStatusIcons m_StatusIcons;
-	CHudScoreboard  m_Scoreboard;
-	CHudMOTD        m_MOTD;
+ 	CHudStatusIcons m_StatusIcons;
+ 	CHudScoreboard  m_Scoreboard;
+ 	CHudMOTD        m_MOTD;
 	CHudMoney       m_Money;
 	CHudTimer       m_Timer;
 	CHudRadio       m_Radio;
@@ -976,6 +976,7 @@ public:
 	CHudMsgFunc(SetFOV);
 	CHudMsgFunc(Concuss);
 	CHudMsgFunc(ShadowIdx);
+	CHudMsgFunc(ZB3Claw);
 
 	// Screen information
 	SCREENINFO	m_scrinfo;

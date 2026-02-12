@@ -32,7 +32,21 @@
 #include "vgui_parser.h"
 #include "rain.h"
 
+#include "event_api.h"
+#include "r_efx.h"
+#include "com_model.h"
+#include "r_studioint.h"
+
 #include "camera.h"
+
+extern engine_studio_api_t IEngineStudio;
+
+static cvar_t *g_pCvarZB3ClawDebug = nullptr;
+static cvar_t *g_pCvarZB3ClawYawOffset = nullptr;
+static cvar_t *g_pCvarZB3ClawFwdOffset = nullptr;
+static cvar_t *g_pCvarZB3ClawZOffset = nullptr;
+static cvar_t *g_pCvarZB3ClawPitchInvert = nullptr;
+static cvar_t *g_pCvarZB3ClawRenderPitch = nullptr;
 
 
 extern client_sprite_t *GetSpriteList(client_sprite_t *pList, const char *psz, int iRes, int iCount);
@@ -65,6 +79,7 @@ GHUD_DECLARE_MESSAGE(ResetHUD)
 GHUD_DECLARE_MESSAGE(ViewMode)
 GHUD_DECLARE_MESSAGE(GameMode)
 GHUD_DECLARE_MESSAGE(ShadowIdx)
+GHUD_DECLARE_MESSAGE(ZB3Claw)
 
 void __CmdFunc_InputCommandSpecial()
 {
@@ -128,6 +143,106 @@ int __MsgFunc_ServerName( const char *name, int size, void *buf )
 	return 1;
 }
 
+int CHud::MsgFunc_ZB3Claw(const char *pszName, int iSize, void *pbuf)
+{
+	BufferReader reader( pszName, pbuf, iSize );
+	Vector pos;
+	pos.x = reader.ReadCoord();
+	pos.y = reader.ReadCoord();
+	pos.z = reader.ReadCoord();
+
+	Vector ang;
+	ang.x = reader.ReadAngle();
+	ang.y = reader.ReadAngle();
+	ang.z = 0.0f;
+
+	if (ang.x > 180.0f)
+		ang.x -= 360.0f;
+
+	const float yawOffset = g_pCvarZB3ClawYawOffset ? g_pCvarZB3ClawYawOffset->value : 0.0f;
+	const float fwdOffset = g_pCvarZB3ClawFwdOffset ? g_pCvarZB3ClawFwdOffset->value : -20.0f;
+	const float zOffset = g_pCvarZB3ClawZOffset ? g_pCvarZB3ClawZOffset->value : 0.0f;
+	const bool pitchInvert = g_pCvarZB3ClawPitchInvert && (g_pCvarZB3ClawPitchInvert->value > 0.0f);
+	const bool renderPitch = g_pCvarZB3ClawRenderPitch && (g_pCvarZB3ClawRenderPitch->value > 0.0f);
+
+	static float s_lastDebugPrint = 0.0f;
+	const float now = gEngfuncs.GetClientTime();
+	const bool doPrint = g_pCvarZB3ClawDebug && (g_pCvarZB3ClawDebug->value > 0.0f) && (now - s_lastDebugPrint >= 0.10f);
+	if (doPrint)
+	{
+		s_lastDebugPrint = now;
+		char buf[256];
+		_snprintf(buf, sizeof(buf), "[ZB3] claw recv pos(%.1f %.1f %.1f) ang(%.1f %.1f %.1f) tune(yaw=%.1f fwd=%.1f z=%.1f pinv=%d rpit=%d)\n",
+			pos.x, pos.y, pos.z,
+			ang.x, ang.y, ang.z,
+			yawOffset, fwdOffset, zOffset, pitchInvert ? 1 : 0, renderPitch ? 1 : 0);
+		gEngfuncs.pfnConsolePrint(buf);
+	}
+
+	Vector forward;
+	Vector offsetAng = ang;
+	offsetAng.x = 0.0f;
+	AngleVectors(offsetAng, forward, nullptr, nullptr);
+	pos = pos + forward * fwdOffset;
+	pos.z += zOffset;
+
+	Vector renderAng = ang;
+	if (!renderPitch)
+		renderAng.x = 0.0f;
+	else if (pitchInvert)
+		renderAng.x *= -1.0f;
+	renderAng.y += yawOffset;
+	renderAng.z = 0.0f;
+
+	if (doPrint)
+	{
+		char buf[256];
+		_snprintf(buf, sizeof(buf), "[ZB3] claw fwd(%.3f %.3f %.3f) final pos(%.1f %.1f %.1f) final ang(%.1f %.1f %.1f)\n",
+			forward.x, forward.y, forward.z,
+			pos.x, pos.y, pos.z,
+			renderAng.x, renderAng.y, renderAng.z);
+		gEngfuncs.pfnConsolePrint(buf);
+	}
+
+	const int modelIdx = gEngfuncs.pEventAPI->EV_FindModelIndex("models/csnc/claweffect.mdl");
+	if (!modelIdx)
+		return 1;
+
+	model_t *pModel = IEngineStudio.GetModelByIndex(modelIdx);
+	if (!pModel)
+		return 1;
+
+	TEMPENTITY *te = gEngfuncs.pEfxAPI->CL_TempEntAlloc(pos, (struct model_s *)pModel);
+	if (!te)
+		return 1;
+
+	te->flags |= (FTENT_CLIENTCUSTOM | FTENT_PERSIST);
+	te->die = gEngfuncs.GetClientTime() + 0.7f;
+	te->entity.curstate.modelindex = modelIdx;
+	te->entity.curstate.effects |= EF_NOINTERP;
+	te->entity.baseline.effects |= EF_NOINTERP;
+	te->entity.curstate.angles[0] = renderAng.x;
+	te->entity.curstate.angles[1] = renderAng.y;
+	te->entity.curstate.angles[2] = renderAng.z;
+	te->entity.baseline.angles[0] = renderAng.x;
+	te->entity.baseline.angles[1] = renderAng.y;
+	te->entity.baseline.angles[2] = renderAng.z;
+	te->entity.angles[0] = renderAng.x;
+	te->entity.angles[1] = renderAng.y;
+	te->entity.angles[2] = renderAng.z;
+	te->entity.curstate.sequence = 0;
+	te->entity.curstate.frame = 1.0f;
+	te->entity.curstate.framerate = 1.0f;
+	te->entity.curstate.animtime = gEngfuncs.GetClientTime();
+	te->entity.curstate.rendermode = kRenderTransAdd;
+	te->entity.curstate.renderfx = kRenderFxNone;
+	te->entity.curstate.renderamt = 255;
+	te->entity.curstate.scale = 1.0f;
+
+	gEngfuncs.pfnConsolePrint("[ZB3] ZB3Claw received\n");
+	return 1;
+}
+
 #ifdef __ANDROID__
 bool evdev_open = false;
 void __CmdFunc_MouseSucksOpen( void ) { evdev_open = true; }
@@ -162,10 +277,17 @@ void CHud :: Init( void )
 
 
 	HOOK_MESSAGE( ShadowIdx );
+	HOOK_MESSAGE( ZB3Claw );
 
 	CVAR_CREATE( "_vgui_menus", "1", FCVAR_ARCHIVE | FCVAR_USERINFO );
 	CVAR_CREATE( "_cl_autowepswitch", "1", FCVAR_ARCHIVE | FCVAR_USERINFO );
 	CVAR_CREATE( "_ah", "0", FCVAR_ARCHIVE | FCVAR_USERINFO );
+	g_pCvarZB3ClawDebug = CVAR_CREATE( "zb3_claw_debug", "0", 0 );
+	g_pCvarZB3ClawYawOffset = CVAR_CREATE( "zb3_claw_yaw_offset", "0", 0 );
+	g_pCvarZB3ClawFwdOffset = CVAR_CREATE( "zb3_claw_fwd_offset", "-20", 0 );
+	g_pCvarZB3ClawZOffset = CVAR_CREATE( "zb3_claw_z_offset", "0", 0 );
+	g_pCvarZB3ClawPitchInvert = CVAR_CREATE( "zb3_claw_pitch_invert", "0", 0 );
+	g_pCvarZB3ClawRenderPitch = CVAR_CREATE( "zb3_claw_render_pitch", "0", 0 );
 
 	hud_textmode = CVAR_CREATE( "hud_textmode", "0", FCVAR_ARCHIVE );
 	hud_colored  = CVAR_CREATE( "hud_colored", "0", FCVAR_ARCHIVE );

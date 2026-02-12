@@ -363,6 +363,7 @@ set(REGAMEDLL_SRCS
     ${REGAMEDLL_DIR}/dlls/func_tank.cpp
     ${REGAMEDLL_DIR}/dlls/game.cpp
     ${REGAMEDLL_DIR}/dlls/gamerules.cpp
+    ${REGAMEDLL_DIR}/dlls/zb3_gamerules.cpp
     ${REGAMEDLL_DIR}/dlls/ggrenade.cpp
     ${REGAMEDLL_DIR}/dlls/gib.cpp
     ${REGAMEDLL_DIR}/dlls/globals.cpp

@@ -777,6 +777,8 @@ public:
 	float m_fCamSwitch;
 	bool m_bEscaped;
 	bool m_bIsVIP;
+	bool m_bIsZombie;
+	int m_iZombieLevel;
 	float m_tmNextRadarUpdate;
 	Vector m_vLastOrigin;
 	int m_iCurrentKickVote;

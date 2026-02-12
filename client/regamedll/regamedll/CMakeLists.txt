@@ -215,6 +215,7 @@ set(GAMEDLL_SRCS
 	"dlls/func_tank.cpp"
 	"dlls/game.cpp"
 	"dlls/gamerules.cpp"
+	"dlls/zb3_gamerules.cpp"
 	"dlls/ggrenade.cpp"
 	"dlls/gib.cpp"
 	"dlls/globals.cpp"

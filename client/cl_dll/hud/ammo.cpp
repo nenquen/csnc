@@ -22,7 +22,7 @@
 #include "cvardef.h"
 #include "cl_util.h"
 #include "parsemsg.h"
-#include "pm_shared.h"
+#include "draw_util.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -30,7 +30,9 @@
 #include "ammohistory.h"
 #include "eventscripts.h"
 #include "com_weapons.h"
-#include "draw_util.h"
+
+static _HSPRITE g_hMainCrosshair = 0;
+static wrect_t g_rcMainCrosshair = { 0, 0, 0, 0 };
 
 enum WeaponIdType
 {
@@ -349,6 +351,7 @@ int CHudAmmo::Init(void)
 
 	m_pHud_DrawHistory_Time = CVAR_CREATE( "hud_drawhistory_time", HISTORY_DRAW_TIME, 0 );
 	m_pHud_FastSwitch = CVAR_CREATE( "hud_fastswitch", "0", FCVAR_ARCHIVE );		// controls whether or not weapons can be selected in one keypress
+	static cvar_t *cl_observercrosshair;
 	CVAR_CREATE( "cl_observercrosshair", "1", 0 );
 	m_pClCrosshairColor = (convar_t*)CVAR_CREATE( "cl_crosshair_color", "50 250 50", FCVAR_ARCHIVE );
 	m_pClCrosshairTranslucent = (convar_t*)CVAR_CREATE( "cl_crosshair_translucent", "1", FCVAR_ARCHIVE );
@@ -392,6 +395,14 @@ int CHudAmmo::VidInit(void)
 	// Load sprites for buckets (top row of weapon menu)
 	m_HUD_bucket0 = gHUD.GetSpriteIndex( "bucket1" );
 	m_HUD_selection = gHUD.GetSpriteIndex( "selection" );
+
+	if (!g_hMainCrosshair)
+		g_hMainCrosshair = SPR_Load("sprites/crosshairs.spr");
+
+	g_rcMainCrosshair.left = 24;
+	g_rcMainCrosshair.top = 0;
+	g_rcMainCrosshair.right = 48;
+	g_rcMainCrosshair.bottom = 24;
 
 	ghsprBuckets = gHUD.GetSprite(m_HUD_bucket0);
 	giBucketWidth = gHUD.GetSpriteRect(m_HUD_bucket0).right - gHUD.GetSpriteRect(m_HUD_bucket0).left;
@@ -627,8 +638,8 @@ int CHudAmmo::MsgFunc_HideWeapon( const char *pszName, int iSize, void *pbuf )
 	}
 	else
 	{
-		if ( m_pWeapon )
-			SetCrosshair( m_pWeapon->hCrosshair, m_pWeapon->rcCrosshair, 255, 255, 255 );
+		if (g_hMainCrosshair)
+			SetCrosshair(g_hMainCrosshair, g_rcMainCrosshair, 255, 255, 255);
 	}
 
 	return 1;
@@ -1095,24 +1106,26 @@ int CHudAmmo::Draw(float flTime)
 	if (!(gHUD.m_iWeaponBits & (1<<(WEAPON_SUIT)) ))
 		return 1;
 
-	// place it here, so pretty dynamic crosshair will work even in spectator!
-	if( gHUD.m_iFOV > 40 )
+	if (gHUD.m_iFOV > 40)
 	{
-		if( switchCrosshairType )
-		{
-			SetCrosshair( 0, nullrc, 0, 0, 0);
+		if (switchCrosshairType)
 			switchCrosshairType = false;
+
+		if (m_bDrawCrosshair && !(gHUD.m_iHideHUDDisplay & (HIDEHUD_WEAPONS | HIDEHUD_FLASHLIGHT | HIDEHUD_ALL)))
+		{
+			if (g_hMainCrosshair)
+				SetCrosshair(g_hMainCrosshair, g_rcMainCrosshair, 255, 255, 255);
 		}
-		// draw a dynamic crosshair
-		DrawCrosshair(flTime);
+		else
+		{
+			SetCrosshair(0, nullrc, 0, 0, 0);
+		}
 	}
 	else
 	{
-		if( !switchCrosshairType )
-		{
-			SetCrosshair(m_pWeapon->hZoomedCrosshair, m_pWeapon->rcZoomedCrosshair, 255, 255, 255);
+		if (!switchCrosshairType)
 			switchCrosshairType = true;
-		}
+		SetCrosshair(0, nullrc, 0, 0, 0);
 	}
 
 	if ( (gHUD.m_iHideHUDDisplay & ( HIDEHUD_WEAPONS | HIDEHUD_ALL )) )

@@ -126,7 +126,7 @@ void CCSBotManager::RestartRound()
 	ResetRadioMessageTimestamps();
 
 	m_lastSeenEnemyTimestamp = -9999.9f;
-	m_roundStartTimestamp = gpGlobals->time + freezetime.value;
+	m_roundStartTimestamp = gpGlobals->time;
 
 	// randomly decide if defensive team wants to "rush" as a whole
 	const float defenseRushChance = 33.3f;	// 25.0f;

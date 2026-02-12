@@ -290,5 +290,6 @@ extern int gmsgBotProgress;
 extern int gmsgBrass;
 extern int gmsgFog;
 extern int gmsgShowTimer;
+extern int gmsgZB3Claw;
 extern int gmsgAccount;
 extern int gmsgHealthInfo;

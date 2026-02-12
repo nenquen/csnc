@@ -378,6 +378,46 @@ void WeaponsPrecache()
 	UTIL_PrecacheOtherWeapon("weapon_galil");
 	UTIL_PrecacheOtherWeapon("weapon_famas");
 
+	PRECACHE_MODEL("models/p_ak47.mdl");
+	PRECACHE_MODEL("models/p_aug.mdl");
+	PRECACHE_MODEL("models/p_awp.mdl");
+	PRECACHE_MODEL("models/p_c4.mdl");
+	PRECACHE_MODEL("models/p_deagle.mdl");
+	PRECACHE_MODEL("models/p_elite.mdl");
+	PRECACHE_MODEL("models/p_famas.mdl");
+	PRECACHE_MODEL("models/p_fiveseven.mdl");
+	PRECACHE_MODEL("models/p_flashbang.mdl");
+	PRECACHE_MODEL("models/p_g3sg1.mdl");
+	PRECACHE_MODEL("models/p_galil.mdl");
+	PRECACHE_MODEL("models/p_glock18.mdl");
+	PRECACHE_MODEL("models/p_hegrenade.mdl");
+	PRECACHE_MODEL("models/p_knife.mdl");
+	PRECACHE_MODEL("models/p_m249.mdl");
+	PRECACHE_MODEL("models/p_m3.mdl");
+	PRECACHE_MODEL("models/p_m4a1.mdl");
+	PRECACHE_MODEL("models/p_mac10.mdl");
+	PRECACHE_MODEL("models/p_mp5.mdl");
+	PRECACHE_MODEL("models/p_p228.mdl");
+	PRECACHE_MODEL("models/p_p90.mdl");
+	PRECACHE_MODEL("models/p_scout.mdl");
+	PRECACHE_MODEL("models/p_sg550.mdl");
+	PRECACHE_MODEL("models/p_sg552.mdl");
+	PRECACHE_MODEL("models/p_smokegrenade.mdl");
+	PRECACHE_MODEL("models/p_tmp.mdl");
+	PRECACHE_MODEL("models/p_ump45.mdl");
+	PRECACHE_MODEL("models/p_usp.mdl");
+	PRECACHE_MODEL("models/p_xm1014.mdl");
+
+	PRECACHE_MODEL("models/shield/p_shield_deagle.mdl");
+	PRECACHE_MODEL("models/shield/p_shield_fiveseven.mdl");
+	PRECACHE_MODEL("models/shield/p_shield_flashbang.mdl");
+	PRECACHE_MODEL("models/shield/p_shield_glock18.mdl");
+	PRECACHE_MODEL("models/shield/p_shield_hegrenade.mdl");
+	PRECACHE_MODEL("models/shield/p_shield_knife.mdl");
+	PRECACHE_MODEL("models/shield/p_shield_p228.mdl");
+	PRECACHE_MODEL("models/shield/p_shield_smokegrenade.mdl");
+	PRECACHE_MODEL("models/shield/p_shield_usp.mdl");
+
 	if (g_pGameRules->IsDeathmatch())
 	{
 		// container for dropped deathmatch weapons
@@ -1496,10 +1536,10 @@ BOOL EXT_FUNC CBasePlayerWeapon::__API_HOOK(DefaultDeploy)(char *szViewModel, ch
 	m_pPlayer->TabulateAmmo();
 #ifdef REGAMEDLL_API
 	m_pPlayer->pev->viewmodel = ALLOC_STRING(szViewModel);
-	m_pPlayer->pev->weaponmodel = ALLOC_STRING(szWeaponModel);
+	m_pPlayer->pev->weaponmodel = m_pPlayer->m_bIsZombie ? 0 : ALLOC_STRING(szWeaponModel);
 #else
 	m_pPlayer->pev->viewmodel = MAKE_STRING(szViewModel);
-	m_pPlayer->pev->weaponmodel = MAKE_STRING(szWeaponModel);
+	m_pPlayer->pev->weaponmodel = m_pPlayer->m_bIsZombie ? 0 : MAKE_STRING(szWeaponModel);
 #endif
 	model_name = m_pPlayer->pev->viewmodel;
 	Q_strlcpy(m_pPlayer->m_szAnimExtention, szAnimExt);
@@ -2030,6 +2070,9 @@ void CWeaponBox::Touch(CBaseEntity *pOther)
 	CBasePlayer *pPlayer = static_cast<CBasePlayer *>(pOther);
 
 	if (pPlayer->m_bIsVIP || pPlayer->m_bShieldDrawn)
+		return;
+
+	if (pPlayer->m_bIsZombie)
 		return;
 
 	pPlayer->OnTouchingWeapon(this);

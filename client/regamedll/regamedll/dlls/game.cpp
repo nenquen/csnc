@@ -26,7 +26,6 @@ cvar_t infiniteGrenades      = { "mp_infinite_grenades", "0", FCVAR_SERVER, 0.0f
 cvar_t allowmonsters         = { "mp_allowmonsters", "0", FCVAR_SERVER, 0.0f, nullptr };
 cvar_t roundtime             = { "mp_roundtime", "5", FCVAR_SERVER, 0.0f, nullptr };
 cvar_t buytime               = { "mp_buytime", "1.5", FCVAR_SERVER, 0.0f, nullptr };
-cvar_t freezetime            = { "mp_freezetime", "6", FCVAR_SERVER, 0.0f, nullptr };
 cvar_t c4timer               = { "mp_c4timer", "45", FCVAR_SERVER, 0.0f, nullptr };
 cvar_t ghostfrequency        = { "mp_ghostfrequency", "0.1", FCVAR_SERVER, 0.0f, nullptr };
 cvar_t autokick              = { "mp_autokick", "1", FCVAR_SERVER, 0.0f, nullptr };
@@ -34,7 +33,7 @@ cvar_t autokick_timeout      = { "mp_autokick_timeout", "-1", FCVAR_SERVER, 0.0f
 cvar_t restartround          = { "sv_restartround", "0", FCVAR_SERVER, 0.0f, nullptr };
 cvar_t sv_restart            = { "sv_restart", "0", FCVAR_SERVER, 0.0f, nullptr };
 cvar_t limitteams            = { "mp_limitteams", "2", FCVAR_SERVER, 0.0f, nullptr };
-cvar_t autoteambalance       = { "mp_autoteambalance", "1", FCVAR_SERVER, 0.0f, nullptr };
+cvar_t autoteambalance       = { "mp_autoteambalance", "0", FCVAR_SERVER, 0.0f, nullptr };
 cvar_t tkpunish              = { "mp_tkpunish", "0", FCVAR_SERVER, 0.0f, nullptr };
 cvar_t hostagepenalty        = { "mp_hostagepenalty", "13", FCVAR_SERVER, 0.0f, nullptr };
 cvar_t mirrordamage          = { "mp_mirrordamage", "0", FCVAR_SERVER, 0.0f, nullptr };
@@ -170,8 +169,6 @@ cvar_t plant_c4_anywhere                 = { "mp_plant_c4_anywhere", "0", 0, 0.0
 cvar_t give_c4_frags                     = { "mp_give_c4_frags", "3", 0, 3.0f, nullptr };
 cvar_t deathmsg_flags                    = { "mp_deathmsg_flags", "abc", 0, 0.0f, nullptr };
 cvar_t assist_damage_threshold           = { "mp_assist_damage_threshold", "40", 0, 40.0f, nullptr };
-cvar_t freezetime_duck                   = { "mp_freezetime_duck", "1", 0, 1.0f, nullptr };
-cvar_t freezetime_jump                   = { "mp_freezetime_jump", "1", 0, 1.0f, nullptr };
 cvar_t jump_height                       = { "mp_jump_height", "45", FCVAR_SERVER, 45.0f, nullptr };
 
 cvar_t hostages_rescued_ratio  = { "mp_hostages_rescued_ratio", "1.0", 0, 1.0f, nullptr };
@@ -287,7 +284,6 @@ void EXT_FUNC GameDLLInit()
 
 	CVAR_REGISTER(&roundtime);
 	CVAR_REGISTER(&buytime);
-	CVAR_REGISTER(&freezetime);
 	CVAR_REGISTER(&c4timer);
 
 #ifndef REGAMEDLL_FIXES
@@ -460,9 +456,6 @@ void EXT_FUNC GameDLLInit()
 	CVAR_REGISTER(&dying_time);
 	CVAR_REGISTER(&deathmsg_flags);
 	CVAR_REGISTER(&assist_damage_threshold);
-
-	CVAR_REGISTER(&freezetime_duck);
-	CVAR_REGISTER(&freezetime_jump);
 	CVAR_REGISTER(&jump_height);
 	CVAR_REGISTER(&defuser_allocation);
 	CVAR_REGISTER(&location_area_info);

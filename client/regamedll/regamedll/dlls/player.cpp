@@ -542,6 +542,13 @@ LINK_HOOK_CLASS_VOID_CHAIN(CBasePlayer, Pain, (int iLastHitGroup, bool bHasArmou
 
 void EXT_FUNC CBasePlayer::__API_HOOK(Pain)(int iLastHitGroup, bool bHasArmour)
 {
+	if (m_bIsZombie)
+	{
+		const int which = RANDOM_LONG(1, 2);
+		EMIT_SOUND(ENT(pev), CHAN_VOICE, which == 1 ? "csnc/zombie_hurt_01.wav" : "csnc/zombie_hurt_02.wav", VOL_NORM, ATTN_NORM);
+		return;
+	}
+
 	int temp = RANDOM_LONG(0, 2);
 
 	if (iLastHitGroup == HITGROUP_HEAD)
@@ -626,6 +633,13 @@ void EXT_FUNC CBasePlayer::__API_HOOK(DeathSound)()
 #else
 	const int channel = CHAN_VOICE;
 #endif
+
+	if (m_bIsZombie)
+	{
+		const char *snd = (RANDOM_LONG(1, 2) == 1) ? "csnc/zombie_death_1.wav" : "csnc/zombie_death_2.wav";
+		EMIT_SOUND(ENT(pev), channel, snd, VOL_NORM, ATTN_NORM);
+		return;
+	}
 
 	// temporarily using pain sounds for death sounds
 	switch (RANDOM_LONG(1, 4))
@@ -916,6 +930,7 @@ BOOL EXT_FUNC CBasePlayer::__API_HOOK(TakeDamage)(entvars_t *pevInflictor, entva
 	BOOL bTeamAttack = FALSE;
 	int armorHit = 0;
 	CBasePlayer *pAttack = nullptr;
+	const float flHealthBeforeDamage = pev->health;
 
 #ifdef REGAMEDLL_ADD
 	{
@@ -932,6 +947,25 @@ BOOL EXT_FUNC CBasePlayer::__API_HOOK(TakeDamage)(entvars_t *pevInflictor, entva
 
 	else if (m_LastHitGroup == HITGROUP_SHIELD && (bitsDamageType & DMG_BULLET))
 		return FALSE;
+
+	{
+		CBasePlayer *pPlayerAttacker = CBasePlayer::Instance(pevAttacker);
+		if (pPlayerAttacker && pPlayerAttacker->IsPlayer() && pPlayerAttacker->m_bIsZombie && !m_bIsZombie)
+		{
+			CBasePlayerItem *pActive = pPlayerAttacker->m_pActiveItem;
+			if (pActive && pActive->m_iId == WEAPON_KNIFE)
+			{
+				flDamage = 50.0f;
+
+				if (pev->health > 0.0f && pev->health <= flDamage)
+				{
+					if (g_pGameRules)
+						g_pGameRules->InfectPlayer(this);
+					return FALSE;
+				}
+			}
+		}
+	}
 
 	if (HasShield())
 		flShieldRatio = 0.2;
@@ -1054,6 +1088,17 @@ BOOL EXT_FUNC CBasePlayer::__API_HOOK(TakeDamage)(entvars_t *pevInflictor, entva
 				if (pPlayerAttacker && !pPlayerAttacker->IsBot() && pPlayerAttacker->m_iTeam != m_iTeam)
 				{
 					TheCareerTasks->HandleEnemyInjury(GetKillerWeaponName(pevInflictor, pevAttacker), pPlayerAttacker->HasShield(), pPlayerAttacker);
+				}
+			}
+
+			{
+				CBasePlayer *pPlayerAttacker = CBasePlayer::Instance(pevAttacker);
+				if (pPlayerAttacker && pPlayerAttacker != this && (pPlayerAttacker->m_bIsZombie != m_bIsZombie))
+				{
+					const float flDealt = Q_min(flHealthBeforeDamage, flDamage);
+					const int reward = int(flDealt * 0.5f);
+					if (reward > 0)
+						pPlayerAttacker->AddAccount(reward, RT_NONE);
 				}
 			}
 
@@ -1312,6 +1357,17 @@ BOOL EXT_FUNC CBasePlayer::__API_HOOK(TakeDamage)(entvars_t *pevInflictor, entva
 			if (pPlayerAttacker && !pPlayerAttacker->IsBot() && pPlayerAttacker->m_iTeam != m_iTeam)
 			{
 				TheCareerTasks->HandleEnemyInjury(GetKillerWeaponName(pevInflictor, pevAttacker), pPlayerAttacker->HasShield(), pPlayerAttacker);
+			}
+		}
+
+		{
+			CBasePlayer *pPlayerAttacker = CBasePlayer::Instance(pevAttacker);
+			if (pPlayerAttacker && pPlayerAttacker != this && (pPlayerAttacker->m_bIsZombie != m_bIsZombie))
+			{
+				const float flDealt = Q_min(flHealthBeforeDamage, flDamage);
+				const int reward = int(flDealt * 0.5f);
+				if (reward > 0)
+					pPlayerAttacker->AddAccount(reward, RT_NONE);
 			}
 		}
 
@@ -4574,32 +4630,13 @@ bool CBasePlayer::CanPlayerBuy(bool display)
 		return false;
 	}
 
-	// is the player in a buy zone?
-	if (!(m_signals.GetState() & SIGNAL_BUY))
+	if (m_bIsZombie)
 	{
+		if (display)
+		{
+			ClientPrint(pev, HUD_PRINTCENTER, "Zombies can't buy");
+		}
 		return false;
-	}
-
-#ifdef REGAMEDLL_ADD
-	if (buytime.value != -1.0f)
-#endif
-	{
-		int buyTime = int(buytime.value * 60.0f);
-		if (buyTime < MIN_BUY_TIME)
-		{
-			buyTime = MIN_BUY_TIME;
-			CVAR_SET_FLOAT("mp_buytime", (MIN_BUY_TIME / 60.0f));
-		}
-
-		if (gpGlobals->time - CSGameRules()->m_fRoundStartTime > buyTime)
-		{
-			if (display)
-			{
-				ClientPrint(pev, HUD_PRINTCENTER, "#Cant_buy", UTIL_dtos1(buyTime));
-			}
-
-			return false;
-		}
 	}
 
 	if (m_bIsVIP)
@@ -5373,6 +5410,12 @@ void EXT_FUNC CBasePlayer::__API_HOOK(PostThink)()
 	StudioFrameAdvance();
 	CheckPowerups();
 
+	if (m_bIsZombie)
+	{
+		m_flTimeStepSound = 0;
+		pev->flTimeStepSound = 0;
+	}
+
 #ifdef REGAMEDLL_ADD
 	if (m_flTimeStepSound) {
 		pev->flTimeStepSound = int(m_flTimeStepSound);
@@ -5770,6 +5813,12 @@ void EXT_FUNC CBasePlayer::__API_HOOK(Spawn)()
 	m_bHasC4 = false;
 	m_bKilledByBomb = false;
 	m_bKilledByGrenade = false;
+
+	if (m_bJustConnected)
+	{
+		m_bIsZombie = false;
+		m_iZombieLevel = 0;
+	}
 	m_flDisplayHistory &= ~DHM_ROUND_CLEAR;
 	m_tmHandleSignals = 0;
 	m_fCamSwitch = 0;
@@ -6169,6 +6218,8 @@ void CBasePlayer::Reset()
 {
 	pev->frags = 0;
 	m_iDeaths = 0;
+	m_bIsZombie = false;
+	m_iZombieLevel = 0;
 
 #ifndef REGAMEDLL_ADD
 	m_iAccount = 0;

@@ -2,6 +2,8 @@
 
 CGameRules *g_pGameRules = nullptr;
 
+CGameRules *CreateZombieMod3Rules();
+
 CGameRules::CGameRules()
 {
 	m_bFreezePeriod = FALSE;
@@ -139,7 +141,7 @@ CGameRules *EXT_FUNC __API_HOOK(InstallGameRules)()
 	if (!gpGlobals->deathmatch)
 		return new CHalfLifeTraining;
 
-	return new CHalfLifeMultiplay;
+	return CreateZombieMod3Rules();
 }
 
 LINK_HOOK_VOID_CHAIN(FreeGameRules, (CGameRules **pGameRules), pGameRules)
