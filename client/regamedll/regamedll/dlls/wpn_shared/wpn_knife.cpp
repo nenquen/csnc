@@ -332,6 +332,9 @@ BOOL CKnife::Swing(BOOL fFirst)
 					WRITE_COORD(vecEnd.x);
 					WRITE_COORD(vecEnd.y);
 					WRITE_COORD(vecEnd.z);
+					WRITE_COORD(m_pPlayer->pev->origin.x);
+					WRITE_COORD(m_pPlayer->pev->origin.y);
+					WRITE_COORD(m_pPlayer->pev->origin.z);
 					WRITE_ANGLE(m_pPlayer->pev->v_angle.x);
 					WRITE_ANGLE(m_pPlayer->pev->v_angle.y);
 				MESSAGE_END();
@@ -398,6 +401,9 @@ BOOL CKnife::Swing(BOOL fFirst)
 				WRITE_COORD(tr.vecEndPos.x);
 				WRITE_COORD(tr.vecEndPos.y);
 				WRITE_COORD(tr.vecEndPos.z);
+				WRITE_COORD(m_pPlayer->pev->origin.x);
+				WRITE_COORD(m_pPlayer->pev->origin.y);
+				WRITE_COORD(m_pPlayer->pev->origin.z);
 				WRITE_ANGLE(m_pPlayer->pev->v_angle.x);
 				WRITE_ANGLE(m_pPlayer->pev->v_angle.y);
 			MESSAGE_END();
@@ -586,6 +592,9 @@ BOOL CKnife::Stab(BOOL fFirst)
 					WRITE_COORD(vecEnd.x);
 					WRITE_COORD(vecEnd.y);
 					WRITE_COORD(vecEnd.z);
+					WRITE_COORD(m_pPlayer->pev->origin.x);
+					WRITE_COORD(m_pPlayer->pev->origin.y);
+					WRITE_COORD(m_pPlayer->pev->origin.z);
 					WRITE_ANGLE(m_pPlayer->pev->v_angle.x);
 					WRITE_ANGLE(m_pPlayer->pev->v_angle.y);
 				MESSAGE_END();
@@ -638,6 +647,9 @@ BOOL CKnife::Stab(BOOL fFirst)
 				WRITE_COORD(tr.vecEndPos.x);
 				WRITE_COORD(tr.vecEndPos.y);
 				WRITE_COORD(tr.vecEndPos.z);
+				WRITE_COORD(m_pPlayer->pev->origin.x);
+				WRITE_COORD(m_pPlayer->pev->origin.y);
+				WRITE_COORD(m_pPlayer->pev->origin.z);
 				WRITE_ANGLE(m_pPlayer->pev->v_angle.x);
 				WRITE_ANGLE(m_pPlayer->pev->v_angle.y);
 			MESSAGE_END();

@@ -25,6 +25,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
+#include <math.h>
 #include "parsemsg.h"
 
 #include "demo.h"
@@ -47,6 +48,7 @@ static cvar_t *g_pCvarZB3ClawFwdOffset = nullptr;
 static cvar_t *g_pCvarZB3ClawZOffset = nullptr;
 static cvar_t *g_pCvarZB3ClawPitchInvert = nullptr;
 static cvar_t *g_pCvarZB3ClawRenderPitch = nullptr;
+static cvar_t *g_pCvarZB3ClawYawNegFlip = nullptr;
 
 
 extern client_sprite_t *GetSpriteList(client_sprite_t *pList, const char *psz, int iRes, int iCount);
@@ -151,10 +153,26 @@ int CHud::MsgFunc_ZB3Claw(const char *pszName, int iSize, void *pbuf)
 	pos.y = reader.ReadCoord();
 	pos.z = reader.ReadCoord();
 
+	Vector attackerOrg;
+	attackerOrg.x = reader.ReadCoord();
+	attackerOrg.y = reader.ReadCoord();
+	attackerOrg.z = reader.ReadCoord();
+
 	Vector ang;
 	ang.x = reader.ReadAngle();
-	ang.y = reader.ReadAngle();
+	const float unusedYaw = reader.ReadAngle();
 	ang.z = 0.0f;
+
+	Vector dir = pos - attackerOrg;
+	if (dir.Length() > 0.001f)
+	{
+		const float yawRad = atan2f(dir.y, dir.x);
+		ang.y = yawRad * (180.0f / 3.14159265358979323846f);
+	}
+	else
+	{
+		ang.y = unusedYaw;
+	}
 
 	if (ang.x > 180.0f)
 		ang.x -= 360.0f;
@@ -164,6 +182,7 @@ int CHud::MsgFunc_ZB3Claw(const char *pszName, int iSize, void *pbuf)
 	const float zOffset = g_pCvarZB3ClawZOffset ? g_pCvarZB3ClawZOffset->value : 0.0f;
 	const bool pitchInvert = g_pCvarZB3ClawPitchInvert && (g_pCvarZB3ClawPitchInvert->value > 0.0f);
 	const bool renderPitch = g_pCvarZB3ClawRenderPitch && (g_pCvarZB3ClawRenderPitch->value > 0.0f);
+	const bool yawNegFlip = g_pCvarZB3ClawYawNegFlip && (g_pCvarZB3ClawYawNegFlip->value > 0.0f);
 
 	static float s_lastDebugPrint = 0.0f;
 	const float now = gEngfuncs.GetClientTime();
@@ -172,10 +191,10 @@ int CHud::MsgFunc_ZB3Claw(const char *pszName, int iSize, void *pbuf)
 	{
 		s_lastDebugPrint = now;
 		char buf[256];
-		_snprintf(buf, sizeof(buf), "[ZB3] claw recv pos(%.1f %.1f %.1f) ang(%.1f %.1f %.1f) tune(yaw=%.1f fwd=%.1f z=%.1f pinv=%d rpit=%d)\n",
+		_snprintf(buf, sizeof(buf), "[ZB3] claw recv pos(%.1f %.1f %.1f) ang(%.1f %.1f %.1f) tune(yaw=%.1f fwd=%.1f z=%.1f pinv=%d rpit=%d yneg=%d)\n",
 			pos.x, pos.y, pos.z,
 			ang.x, ang.y, ang.z,
-			yawOffset, fwdOffset, zOffset, pitchInvert ? 1 : 0, renderPitch ? 1 : 0);
+			yawOffset, fwdOffset, zOffset, pitchInvert ? 1 : 0, renderPitch ? 1 : 0, yawNegFlip ? 1 : 0);
 		gEngfuncs.pfnConsolePrint(buf);
 	}
 
@@ -192,6 +211,12 @@ int CHud::MsgFunc_ZB3Claw(const char *pszName, int iSize, void *pbuf)
 	else if (pitchInvert)
 		renderAng.x *= -1.0f;
 	renderAng.y += yawOffset;
+	if (yawNegFlip && renderAng.y < 0.0f)
+		renderAng.y *= -1.0f;
+	if (renderAng.y > 180.0f)
+		renderAng.y -= 360.0f;
+	else if (renderAng.y < -180.0f)
+		renderAng.y += 360.0f;
 	renderAng.z = 0.0f;
 
 	if (doPrint)
@@ -216,17 +241,25 @@ int CHud::MsgFunc_ZB3Claw(const char *pszName, int iSize, void *pbuf)
 	if (!te)
 		return 1;
 
-	te->flags |= (FTENT_CLIENTCUSTOM | FTENT_PERSIST);
+	te->flags |= (FTENT_CLIENTCUSTOM | FTENT_PERSIST | FTENT_FADEOUT);
 	te->die = gEngfuncs.GetClientTime() + 0.7f;
+	te->fadeSpeed = 1.0f / 0.7f;
 	te->entity.curstate.modelindex = modelIdx;
 	te->entity.curstate.effects |= EF_NOINTERP;
 	te->entity.baseline.effects |= EF_NOINTERP;
+	te->entity.prevstate.effects |= EF_NOINTERP;
 	te->entity.curstate.angles[0] = renderAng.x;
 	te->entity.curstate.angles[1] = renderAng.y;
 	te->entity.curstate.angles[2] = renderAng.z;
 	te->entity.baseline.angles[0] = renderAng.x;
 	te->entity.baseline.angles[1] = renderAng.y;
 	te->entity.baseline.angles[2] = renderAng.z;
+	te->entity.prevstate.angles[0] = renderAng.x;
+	te->entity.prevstate.angles[1] = renderAng.y;
+	te->entity.prevstate.angles[2] = renderAng.z;
+	te->entity.latched.prevangles[0] = renderAng.x;
+	te->entity.latched.prevangles[1] = renderAng.y;
+	te->entity.latched.prevangles[2] = renderAng.z;
 	te->entity.angles[0] = renderAng.x;
 	te->entity.angles[1] = renderAng.y;
 	te->entity.angles[2] = renderAng.z;
@@ -237,6 +270,8 @@ int CHud::MsgFunc_ZB3Claw(const char *pszName, int iSize, void *pbuf)
 	te->entity.curstate.rendermode = kRenderTransAdd;
 	te->entity.curstate.renderfx = kRenderFxNone;
 	te->entity.curstate.renderamt = 255;
+	te->entity.baseline.renderamt = 255;
+	te->entity.prevstate.renderamt = 255;
 	te->entity.curstate.scale = 1.0f;
 
 	gEngfuncs.pfnConsolePrint("[ZB3] ZB3Claw received\n");
@@ -288,6 +323,7 @@ void CHud :: Init( void )
 	g_pCvarZB3ClawZOffset = CVAR_CREATE( "zb3_claw_z_offset", "0", 0 );
 	g_pCvarZB3ClawPitchInvert = CVAR_CREATE( "zb3_claw_pitch_invert", "0", 0 );
 	g_pCvarZB3ClawRenderPitch = CVAR_CREATE( "zb3_claw_render_pitch", "0", 0 );
+	g_pCvarZB3ClawYawNegFlip = CVAR_CREATE( "zb3_claw_yaw_neg_flip", "0", 0 );
 
 	hud_textmode = CVAR_CREATE( "hud_textmode", "0", FCVAR_ARCHIVE );
 	hud_colored  = CVAR_CREATE( "hud_colored", "0", FCVAR_ARCHIVE );

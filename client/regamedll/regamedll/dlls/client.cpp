@@ -225,7 +225,7 @@ void LinkUserMessages()
 	gmsgBrass         = REG_USER_MSG("Brass", -1);
 	gmsgFog           = REG_USER_MSG("Fog", 7);
 	gmsgShowTimer     = REG_USER_MSG("ShowTimer", 0);
-	gmsgZB3Claw       = REG_USER_MSG("ZB3Claw", 8);
+	gmsgZB3Claw       = REG_USER_MSG("ZB3Claw", 14);
 	gmsgHudTextArgs   = REG_USER_MSG("HudTextArgs", -1);
 
 #ifdef BUILD_LATEST
