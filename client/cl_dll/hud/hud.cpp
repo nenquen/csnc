@@ -419,6 +419,8 @@ CHud :: ~CHud()
 	delete [] m_rghSprites;
 	delete [] m_rgrcRects;
 	delete [] m_rgszSpriteNames;
+	if( m_bOwnSpriteList )
+		delete [] m_pSpriteList;
 
 	// Clear any old HUD list
 	for( HUDLIST *pList = m_pHudList; pList; pList = m_pHudList )
@@ -478,7 +480,52 @@ void CHud :: VidInit( void )
 	if( !m_pSpriteList )
 	{
 		// we need to load the hud.txt, and all sprites within
-		m_pSpriteList = SPR_GetList("sprites/hud.txt", &m_iSpriteCountAllRes);
+		int iSpriteCountBase = 0;
+		int iSpriteCountExtra = 0;
+		client_sprite_t *pSpriteListBase = SPR_GetList("sprites/hud.txt", &iSpriteCountBase);
+		client_sprite_t *pSpriteListExtra = SPR_GetList("sprites/csnc/scoreboard/hud.txt", &iSpriteCountExtra);
+
+		if( pSpriteListBase && pSpriteListExtra && iSpriteCountBase > 0 && iSpriteCountExtra > 0 )
+		{
+			m_iSpriteCountAllRes = iSpriteCountBase + iSpriteCountExtra;
+			client_sprite_t *pMerged = new(std::nothrow) client_sprite_t[m_iSpriteCountAllRes];
+			if( !pMerged )
+			{
+				gEngfuncs.pfnConsolePrint("CHud::VidInit(): Cannot allocate memory");
+				if( g_iXash )
+					gRenderAPI.Host_Error("CHud::VidInit(): Cannot allocate memory");
+			}
+			else
+			{
+				memcpy( pMerged, pSpriteListBase, sizeof( client_sprite_t ) * iSpriteCountBase );
+				memcpy( pMerged + iSpriteCountBase, pSpriteListExtra, sizeof( client_sprite_t ) * iSpriteCountExtra );
+				for( int i = iSpriteCountBase; i < m_iSpriteCountAllRes; ++i )
+				{
+					if( pMerged[i].szSprite[0] && !strchr( pMerged[i].szSprite, '/' ) && !strchr( pMerged[i].szSprite, '\\' ) )
+					{
+						char prefixed[64];
+						_snprintf( prefixed, sizeof( prefixed ), "csnc/scoreboard/%s", pMerged[i].szSprite );
+						prefixed[sizeof( prefixed ) - 1] = '\0';
+						strncpy( pMerged[i].szSprite, prefixed, sizeof( pMerged[i].szSprite ) );
+						pMerged[i].szSprite[sizeof( pMerged[i].szSprite ) - 1] = '\0';
+					}
+				}
+				m_pSpriteList = pMerged;
+				m_bOwnSpriteList = true;
+			}
+		}
+		else if( pSpriteListBase && iSpriteCountBase > 0 )
+		{
+			m_pSpriteList = pSpriteListBase;
+			m_iSpriteCountAllRes = iSpriteCountBase;
+			m_bOwnSpriteList = false;
+		}
+		else
+		{
+			m_pSpriteList = pSpriteListExtra;
+			m_iSpriteCountAllRes = iSpriteCountExtra;
+			m_bOwnSpriteList = false;
+		}
 
 		if( m_pSpriteList )
 		{

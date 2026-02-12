@@ -298,6 +298,7 @@ public:
 	void InitHUDData( void );
 	int VidInit( void );
 	int Draw( float flTime );
+	int DrawTopScoreBoard( float flTime );
 
 	int DrawScoreboard( float flTime );
 	int DrawTeams( float listslot );
@@ -308,6 +309,7 @@ public:
 	int MsgFunc_Account( const char *pszName, int iSize, void *pbuf );
 	void SetScoreboardDefaults( void );
 	void GetAllPlayersInfo( void );
+	void CacheTopScoreBoardData( void );
 
 	CHudUserCmd(ShowScores);
 	CHudUserCmd(HideScores);
@@ -322,6 +324,7 @@ public:
 
 	int m_iPlayerNum;
 	int m_iNumTeams;
+	cvar_t *hud_topscoreboard;
 
 private:
 	int m_iLastKilledBy;
@@ -330,6 +333,50 @@ private:
 	bool m_bDrawStroke;
 	bool m_bForceDraw; // if called by showscoreboard2
 	bool m_bShowscoresHeld;
+
+	int m_iTeamScore_T;
+	int m_iTeamScore_CT;
+	int m_iTeamAlive_T;
+	int m_iTeamAlive_CT;
+	float m_flTopNextCache;
+
+	int m_iSBOriginalBG;
+	int m_iSBTeamDeathBG;
+	int m_iSBUnitehBG;
+	int m_iSBNum_L;
+	int m_iSBNum_S;
+	int m_iSBText_CT;
+	int m_iSBText_T;
+	int m_iSBText_TR;
+	int m_iSBText_HM;
+	int m_iSBText_ZB;
+	int m_iSBText_1st;
+	int m_iSBText_Kill;
+	int m_iSBText_Round;
+
+	wrect_t m_rcNumber_Large[10];
+	wrect_t m_rcNumber_Small[10];
+
+	int m_iSB_BGIndex;
+	int m_iSB_TextIndex;
+	int m_iSB_TTextIndex;
+	int m_iSB_CTTextIndex;
+	bool m_bTopScoreBoardEnabled;
+	bool m_bTopIsTeamplay;
+
+	cvar_t *hud_topscoreboard_x;
+	cvar_t *hud_topscoreboard_y;
+	cvar_t *hud_topscoreboard_score_y;
+	cvar_t *hud_topscoreboard_alive_y;
+	cvar_t *hud_topscoreboard_pad_l;
+	cvar_t *hud_topscoreboard_pad_r;
+	cvar_t *hud_topscoreboard_center_y;
+	cvar_t *hud_topscoreboard_roundnum_y;
+	cvar_t *hud_topscoreboard_roundlabel_y;
+
+	void BuildHudNumberRect( int sprIndex, wrect_t *prc, int w, int h, int xOffset, int yOffset );
+	int GetHudNumberWidth( int sprIndex, wrect_t *prc, int iFlags, int iNumber );
+	int DrawHudNumber( int sprIndex, wrect_t *prc, int x, int y, int iFlags, int iNumber, int r, int g, int b );
 };
 
 //
@@ -847,7 +894,7 @@ private:
 class CHud
 {
 public:
-	CHud() : m_pHudList(NULL), m_iSpriteCount(0)  {}
+	CHud() : m_pHudList(NULL), m_iSpriteCount(0), m_bOwnSpriteList(false)  {}
 	~CHud();			// destructor, frees allocated memory // thanks, Captain Obvious
 
 	void Init( void );
@@ -999,6 +1046,7 @@ private:
 	_HSPRITE	m_hsprLogo;
 	int	m_iLogo;
 	client_sprite_t	*m_pSpriteList;
+	bool m_bOwnSpriteList;
 	int	m_iSpriteCount;
 	int	m_iSpriteCountAllRes;
 	float m_flMouseSensitivity;

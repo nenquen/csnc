@@ -82,6 +82,17 @@ int CHudScoreboard :: Init( void )
 {
 	gHUD.AddHudElem( this );
 
+	hud_topscoreboard = CVAR_CREATE( "hud_topscoreboard", "1", FCVAR_ARCHIVE );
+	hud_topscoreboard_x = CVAR_CREATE( "hud_topscoreboard_x", "0", FCVAR_ARCHIVE );
+	hud_topscoreboard_y = CVAR_CREATE( "hud_topscoreboard_y", "0", FCVAR_ARCHIVE );
+	hud_topscoreboard_score_y = CVAR_CREATE( "hud_topscoreboard_score_y", "4", FCVAR_ARCHIVE );
+	hud_topscoreboard_alive_y = CVAR_CREATE( "hud_topscoreboard_alive_y", "28", FCVAR_ARCHIVE );
+	hud_topscoreboard_pad_l = CVAR_CREATE( "hud_topscoreboard_pad_l", "0", FCVAR_ARCHIVE );
+	hud_topscoreboard_pad_r = CVAR_CREATE( "hud_topscoreboard_pad_r", "0", FCVAR_ARCHIVE );
+	hud_topscoreboard_center_y = CVAR_CREATE( "hud_topscoreboard_center_y", "36", FCVAR_ARCHIVE );
+	hud_topscoreboard_roundnum_y = CVAR_CREATE( "hud_topscoreboard_roundnum_y", "10", FCVAR_ARCHIVE );
+	hud_topscoreboard_roundlabel_y = CVAR_CREATE( "hud_topscoreboard_roundlabel_y", "29", FCVAR_ARCHIVE );
+
 	// Hook messages & commands here
 	HOOK_COMMAND( "+showscores", ShowScores );
 	HOOK_COMMAND( "-showscores", HideScores );
@@ -108,7 +119,39 @@ int CHudScoreboard :: VidInit( void )
 	yend = ScreenHeight - ystart;
 	m_bForceDraw = false;
 
-	// Load sprites here
+	m_iTeamScore_T = 0;
+	m_iTeamScore_CT = 0;
+	m_iTeamAlive_T = 0;
+	m_iTeamAlive_CT = 0;
+	m_flTopNextCache = 0.0f;
+
+	m_iSBOriginalBG = gHUD.GetSpriteIndex( "SBOriginalBG" );
+	m_iSBTeamDeathBG = gHUD.GetSpriteIndex( "SBTeamDeathBG" );
+	m_iSBUnitehBG = gHUD.GetSpriteIndex( "SBUnitehBG" );
+	m_iSBNum_L = gHUD.GetSpriteIndex( "SBNum_L" );
+	m_iSBNum_S = gHUD.GetSpriteIndex( "SBNum_S" );
+	m_iSBText_CT = gHUD.GetSpriteIndex( "SBText_CT" );
+	m_iSBText_T = gHUD.GetSpriteIndex( "SBText_T" );
+	m_iSBText_TR = gHUD.GetSpriteIndex( "SBText_TR" );
+	m_iSBText_HM = gHUD.GetSpriteIndex( "SBText_HM" );
+	m_iSBText_ZB = gHUD.GetSpriteIndex( "SBText_ZB" );
+	m_iSBText_1st = gHUD.GetSpriteIndex( "SBText_1st" );
+	m_iSBText_Kill = gHUD.GetSpriteIndex( "SBText_Kill" );
+	m_iSBText_Round = gHUD.GetSpriteIndex( "SBText_Round" );
+
+	m_iSB_BGIndex = m_iSBOriginalBG;
+	m_iSB_TextIndex = m_iSBText_Round;
+	m_iSB_TTextIndex = m_iSBText_TR;
+	m_iSB_CTTextIndex = m_iSBText_CT;
+	m_bTopIsTeamplay = true;
+
+	m_bTopScoreBoardEnabled = (m_iSB_BGIndex != -1 && m_iSBNum_L != -1 && m_iSBNum_S != -1);
+	if (m_bTopScoreBoardEnabled)
+	{
+		BuildHudNumberRect( m_iSBNum_L, m_rcNumber_Large, 13, 13, 0, 0 );
+		BuildHudNumberRect( m_iSBNum_S, m_rcNumber_Small, 10, 10, 0, 0 );
+	}
+
 	return 1;
 }
 
@@ -131,6 +174,11 @@ void CHudScoreboard :: InitHUDData( void )
 
 int CHudScoreboard :: Draw( float flTime )
 {
+	if (hud_topscoreboard && hud_topscoreboard->value && m_bTopScoreBoardEnabled)
+	{
+		DrawTopScoreBoard( flTime );
+	}
+
 	if( !m_bForceDraw )
 	{
 		if ( (!m_bShowscoresHeld && gHUD.m_Health.m_iHealth > 0 && !gHUD.m_iIntermission) )
@@ -150,6 +198,271 @@ int CHudScoreboard :: Draw( float flTime )
 	}
 
 	return DrawScoreboard(flTime);
+}
+
+void CHudScoreboard::CacheTopScoreBoardData( void )
+{
+	m_iTeamScore_T = 0;
+	m_iTeamScore_CT = 0;
+
+	for (int i = 1; i <= m_iNumTeams; ++i)
+	{
+		if (g_TeamInfo[i].players <= 0)
+			continue;
+		if (g_TeamInfo[i].teamnumber == TEAM_TERRORIST)
+			m_iTeamScore_T = g_TeamInfo[i].frags;
+		else if (g_TeamInfo[i].teamnumber == TEAM_CT)
+			m_iTeamScore_CT = g_TeamInfo[i].frags;
+	}
+
+	m_iTeamAlive_T = 0;
+	m_iTeamAlive_CT = 0;
+	for (int i = 1; i < MAX_PLAYERS; ++i)
+	{
+		if (!g_PlayerInfoList[i].name || !g_PlayerInfoList[i].name[0])
+			continue;
+		if (g_PlayerExtraInfo[i].dead)
+			continue;
+		if (g_PlayerExtraInfo[i].teamnumber == TEAM_TERRORIST)
+			++m_iTeamAlive_T;
+		else if (g_PlayerExtraInfo[i].teamnumber == TEAM_CT)
+			++m_iTeamAlive_CT;
+	}
+}
+
+void CHudScoreboard::BuildHudNumberRect( int sprIndex, wrect_t *prc, int w, int h, int xOffset, int yOffset )
+{
+	wrect_t rc = gHUD.GetSpriteRect( sprIndex );
+	int x = rc.left;
+	int y = rc.top;
+
+	for ( int i = 0; i < 10; i++ )
+	{
+		prc[i].left = x;
+		prc[i].top = y;
+		prc[i].right = prc[i].left + w;
+		prc[i].bottom = prc[i].top + h;
+		x += ( w + xOffset );
+	}
+}
+
+int CHudScoreboard::GetHudNumberWidth( int sprIndex, wrect_t *prc, int iFlags, int iNumber )
+{
+	int iDigits = DrawUtils::GetNumWidth( iNumber, iFlags );
+	if (iDigits <= 0)
+		return 0;
+	int iWidth = prc[0].right - prc[0].left;
+	return iDigits * iWidth;
+}
+
+int CHudScoreboard::DrawHudNumber( int sprIndex, wrect_t *prc, int x, int y, int iFlags, int iNumber, int r, int g, int b )
+{
+	if (sprIndex == -1)
+		return x;
+	int iWidth = prc[0].right - prc[0].left;
+
+	if ( iNumber > 0 )
+	{
+		if ( iNumber >= 100 )
+		{
+			int k = iNumber / 100;
+			SPR_Set( gHUD.GetSprite( sprIndex ), r, g, b );
+			SPR_DrawAdditive( 0, x, y, &prc[k] );
+			x += iWidth;
+		}
+		else if ( iFlags & ( DHN_3DIGITS ) )
+		{
+			// forced hundreds
+			if ( iFlags & DHN_DRAWZERO )
+			{
+				SPR_Set( gHUD.GetSprite( sprIndex ), r, g, b );
+				SPR_DrawAdditive( 0, x, y, &prc[0] );
+			}
+			x += iWidth;
+		}
+
+		if ( iNumber >= 10 )
+		{
+			int k = ( iNumber % 100 ) / 10;
+			SPR_Set( gHUD.GetSprite( sprIndex ), r, g, b );
+			SPR_DrawAdditive( 0, x, y, &prc[k] );
+			x += iWidth;
+		}
+		else if ( iFlags & ( DHN_3DIGITS | DHN_2DIGITS ) )
+		{
+			// forced tens
+			if ( iFlags & DHN_DRAWZERO )
+			{
+				SPR_Set( gHUD.GetSprite( sprIndex ), r, g, b );
+				SPR_DrawAdditive( 0, x, y, &prc[0] );
+			}
+			x += iWidth;
+		}
+
+		int k = iNumber % 10;
+		SPR_Set( gHUD.GetSprite( sprIndex ), r, g, b );
+		SPR_DrawAdditive( 0, x, y, &prc[k] );
+		x += iWidth;
+	}
+	else if ( iFlags & DHN_DRAWZERO )
+	{
+		SPR_Set( gHUD.GetSprite( sprIndex ), r, g, b );
+		// draw all forced leading zeros
+		if ( iFlags & DHN_3DIGITS )
+		{
+			SPR_DrawAdditive( 0, x, y, &prc[0] );
+			x += iWidth;
+			SPR_DrawAdditive( 0, x, y, &prc[0] );
+			x += iWidth;
+			SPR_DrawAdditive( 0, x, y, &prc[0] );
+			x += iWidth;
+		}
+		else if ( iFlags & DHN_2DIGITS )
+		{
+			SPR_DrawAdditive( 0, x, y, &prc[0] );
+			x += iWidth;
+			SPR_DrawAdditive( 0, x, y, &prc[0] );
+			x += iWidth;
+		}
+		else
+		{
+			SPR_DrawAdditive( 0, x, y, &prc[0] );
+			x += iWidth;
+		}
+	}
+
+	return x;
+}
+
+int CHudScoreboard::DrawTopScoreBoard( float flTime )
+{
+	if (!m_bTopScoreBoardEnabled)
+		return 1;
+
+	if (flTime >= m_flTopNextCache)
+	{
+		GetAllPlayersInfo();
+		CacheTopScoreBoardData();
+		m_flTopNextCache = flTime + 0.25f;
+	}
+
+	if (m_iSB_BGIndex == -1)
+		return 1;
+
+	wrect_t bgRc = gHUD.GetSpriteRect( m_iSB_BGIndex );
+	const int bgW = bgRc.right - bgRc.left;
+	const int bgH = bgRc.bottom - bgRc.top;
+	if (bgW <= 0 || bgH <= 0)
+		return 1;
+
+	int bgX = ( ScreenWidth - bgW ) / 2;
+	int bgY = 0;
+	if (hud_topscoreboard_x)
+		bgX += (int)hud_topscoreboard_x->value;
+	if (hud_topscoreboard_y)
+		bgY += (int)hud_topscoreboard_y->value;
+
+	SPR_Set( gHUD.GetSprite( m_iSB_BGIndex ), 255, 255, 255 );
+	SPR_Draw( 0, bgX, bgY, &bgRc );
+
+	const int scoreY = bgY + ( hud_topscoreboard_score_y ? (int)hud_topscoreboard_score_y->value : 4 );
+	const int aliveY = bgY + ( hud_topscoreboard_alive_y ? (int)hud_topscoreboard_alive_y->value : 26 );
+
+	const int scoreFlags = DHN_2DIGITS | DHN_DRAWZERO;
+	const int aliveFlags = DHN_2DIGITS | DHN_DRAWZERO;
+
+	const int digitW_L = m_rcNumber_Large[0].right - m_rcNumber_Large[0].left;
+	const int digitW_S = m_rcNumber_Small[0].right - m_rcNumber_Small[0].left;
+	const int scoreWidth = digitW_L * 2;
+	const int aliveWidth = digitW_S * 2;
+
+	const int scorePadL = ( hud_topscoreboard_pad_l ? (int)hud_topscoreboard_pad_l->value : 12 );
+	const int scorePadR = ( hud_topscoreboard_pad_r ? (int)hud_topscoreboard_pad_r->value : 12 );
+
+	// Layout anchors (reference-like): [left wing][center block][right wing]
+	const int centerW = 56;
+	const int wingW = ( bgW - centerW ) / 2;
+	const int leftX = bgX;
+	const int centerX = bgX + wingW;
+	const int rightX = bgX + wingW + centerW;
+
+	// Measure label widths (if available)
+	int zbW = 0;
+	wrect_t zbRc;
+	if (m_iSBText_ZB != -1)
+	{
+		zbRc = gHUD.GetSpriteRect( m_iSBText_ZB );
+		zbW = zbRc.right - zbRc.left;
+	}
+	int hmW = 0;
+	wrect_t hmRc;
+	if (m_iSBText_HM != -1)
+	{
+		hmRc = gHUD.GetSpriteRect( m_iSBText_HM );
+		hmW = hmRc.right - hmRc.left;
+	}
+	const int labelGap = 4;
+
+	// Center score+label groups inside each wing box
+	const int tGroupW = scoreWidth + ( zbW > 0 ? ( labelGap + zbW ) : 0 );
+	const int ctGroupW = scoreWidth + ( hmW > 0 ? ( labelGap + hmW ) : 0 );
+	int tGroupX = leftX + ( wingW - tGroupW ) / 2;
+	int ctGroupX = rightX + ( wingW - ctGroupW ) / 2;
+
+	// Preserve manual biasing knobs (pad) as a small shift if user wants to tune
+	tGroupX += scorePadL;
+	ctGroupX -= scorePadR;
+
+	const int tScoreNumX = tGroupX;
+	const int ctScoreNumX = ctGroupX + ( hmW > 0 ? ( hmW + labelGap ) : 0 );
+
+	// Alive/total counters sit in the inner bottom boxes near the center block
+	const int aliveInsetL = 21;
+	const int aliveInsetR = 39;
+	const int tAliveNumX = centerX - aliveWidth - aliveInsetL;
+	const int ctAliveNumX = rightX + wingW - aliveWidth - aliveInsetR;
+
+	DrawHudNumber( m_iSBNum_L, m_rcNumber_Large, tScoreNumX, scoreY + 5, scoreFlags, m_iTeamScore_T, 128, 128, 128 );
+	DrawHudNumber( m_iSBNum_L, m_rcNumber_Large, ctScoreNumX, scoreY + 5, scoreFlags, m_iTeamScore_CT, 128, 128, 128 );
+
+	if (m_iSBText_ZB != -1 && zbW > 0)
+	{
+		SPR_Set( gHUD.GetSprite( m_iSBText_ZB ), 255, 255, 255 );
+		SPR_DrawAdditive( 0, tScoreNumX + scoreWidth + labelGap, scoreY + 7, &zbRc );
+	}
+	if (m_iSBText_HM != -1 && hmW > 0)
+	{
+		SPR_Set( gHUD.GetSprite( m_iSBText_HM ), 255, 255, 255 );
+		SPR_DrawAdditive( 0, ctGroupX, scoreY + 7, &hmRc );
+	}
+
+	// round number in the top-center box, ROUND label in the lower-center box
+	int roundNum = m_iTeamScore_T + m_iTeamScore_CT + 1;
+	if (roundNum < 1)
+		roundNum = 1;
+	const int roundNumWidth = digitW_L * 2;
+	const int roundNumX = centerX + ( centerW - roundNumWidth ) / 2;
+	const int roundNumY = bgY + ( hud_topscoreboard_roundnum_y ? (int)hud_topscoreboard_roundnum_y->value : 10 );
+	DrawHudNumber( m_iSBNum_L, m_rcNumber_Large, roundNumX, roundNumY, aliveFlags, roundNum, 128, 128, 128 );
+	DrawHudNumber( m_iSBNum_L, m_rcNumber_Large, roundNumX + 1, roundNumY, aliveFlags, roundNum, 128, 128, 128 );
+
+	if (m_iSBText_Round != -1)
+	{
+		wrect_t roundRc = gHUD.GetSpriteRect( m_iSBText_Round );
+		int roundTextW = roundRc.right - roundRc.left;
+		int centerY = bgY + ( hud_topscoreboard_roundlabel_y ? (int)hud_topscoreboard_roundlabel_y->value : 29 );
+		int roundTextX = centerX + ( centerW - roundTextW ) / 2;
+		SPR_Set( gHUD.GetSprite( m_iSBText_Round ), 255, 255, 255 );
+		SPR_DrawAdditive( 0, roundTextX, centerY, &roundRc );
+	}
+
+	if (m_bTopIsTeamplay)
+	{
+		DrawHudNumber( m_iSBNum_S, m_rcNumber_Small, tAliveNumX, aliveY, aliveFlags, m_iTeamAlive_T, 128, 128, 128 );
+		DrawHudNumber( m_iSBNum_S, m_rcNumber_Small, ctAliveNumX, aliveY, aliveFlags, m_iTeamAlive_CT, 128, 128, 128 );
+	}
+
+	return 1;
 }
 
 int CHudScoreboard :: DrawScoreboard( float fTime )
