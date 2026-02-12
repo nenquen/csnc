@@ -112,16 +112,22 @@ void SCR_DrawFPS( int height )
 		{
 		case 3:
 			Q_snprintf( fpsstring, sizeof( fpsstring ), "fps: ^1%4i min, ^3%4i cur, ^2%4i max | ^3%.2f avg", minfps, curfps, maxfps, avgrate );
+			MakeRGBA( color, 255, 255, 255, 255 );
 			break;
 		case 2:
 			Q_snprintf( fpsstring, sizeof( fpsstring ), "fps: ^1%4i min, ^3%4i cur, ^2%4i max", minfps, curfps, maxfps );
+			MakeRGBA( color, 255, 255, 255, 255 );
 			break;
 		case 1:
 		default:
 			Q_snprintf( fpsstring, sizeof( fpsstring ), "%4i fps", curfps );
+			if (curfps < 30)
+				MakeRGBA( color, 255, 0, 0, 255 );
+			else if (curfps < 60)
+				MakeRGBA( color, 255, 255, 0, 255 );
+			else
+				MakeRGBA( color, 0, 255, 0, 255 );
 		}
-
-		MakeRGBA( color, 255, 255, 255, 255 );
 	}
 
 	Con_DrawStringLen( fpsstring, &offset, NULL );

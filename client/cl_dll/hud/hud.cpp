@@ -273,8 +273,6 @@ int CHud::MsgFunc_ZB3Claw(const char *pszName, int iSize, void *pbuf)
 	te->entity.baseline.renderamt = 255;
 	te->entity.prevstate.renderamt = 255;
 	te->entity.curstate.scale = 1.0f;
-
-	gEngfuncs.pfnConsolePrint("[ZB3] ZB3Claw received\n");
 	return 1;
 }
 

@@ -2101,10 +2101,13 @@ void BuyZoneIcon_Set(CBasePlayer *pPlayer)
 
 void BuyZoneIcon_Clear(CBasePlayer *pPlayer)
 {
-	MESSAGE_BEGIN(MSG_ONE, gmsgStatusIcon, nullptr, pPlayer->pev);
-		WRITE_BYTE(STATUSICON_HIDE);
-		WRITE_STRING("buyzone");
-	MESSAGE_END();
+	if (pPlayer->m_bIsZombie)
+	{
+		MESSAGE_BEGIN(MSG_ONE, gmsgStatusIcon, nullptr, pPlayer->pev);
+			WRITE_BYTE(STATUSICON_HIDE);
+			WRITE_STRING("buyzone");
+		MESSAGE_END();
+	}
 
 	if (pPlayer->m_iMenu >= Menu_Buy)
 	{
@@ -4632,10 +4635,6 @@ bool CBasePlayer::CanPlayerBuy(bool display)
 
 	if (m_bIsZombie)
 	{
-		if (display)
-		{
-			ClientPrint(pev, HUD_PRINTCENTER, "Zombies can't buy");
-		}
 		return false;
 	}
 

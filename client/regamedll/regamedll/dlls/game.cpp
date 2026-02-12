@@ -51,6 +51,7 @@ cvar_t allow_spectators      = { "allow_spectators", "1.0", FCVAR_SERVER, 0.0f, 
 cvar_t mp_chattime           = { "mp_chattime", "10", FCVAR_SERVER, 0.0f, nullptr };
 cvar_t kick_percent          = { "mp_kickpercent", "0.66", FCVAR_SERVER, 0.0f, nullptr };
 cvar_t humans_join_team      = { "humans_join_team", "any", FCVAR_SERVER, 0.0f, nullptr };
+cvar_t zb3_fog_density       = { "zb3_fog_density", "0.0025", FCVAR_SERVER, 0.0f, nullptr };
 cvar_t sk_plr_9mm_bullet1    = { "sk_plr_9mm_bullet1", "0", 0, 0.0f, nullptr };
 cvar_t sk_plr_9mm_bullet2    = { "sk_plr_9mm_bullet2", "0", 0, 0.0f, nullptr };
 cvar_t sk_plr_9mm_bullet3    = { "sk_plr_9mm_bullet3", "0", 0, 0.0f, nullptr };
@@ -320,6 +321,7 @@ void EXT_FUNC GameDLLInit()
 	CVAR_REGISTER(&fragsleft);
 	CVAR_REGISTER(&timeleft);
 	CVAR_REGISTER(&humans_join_team);
+	CVAR_REGISTER(&zb3_fog_density);
 
 #ifdef BUILD_LATEST
 	CVAR_REGISTER(&scoreboard_showhealth);

@@ -35,6 +35,7 @@ public:
 			VOL_NORM, ATTN_NORM);
 
 		pVictim->m_bIsZombie = true;
+		BuyZoneIcon_Clear(pVictim);
 		pVictim->m_iZombieLevel = 0;
 		if (pVictim->m_iTeam != TERRORIST)
 			ChangePlayerTeam(pVictim, "TERRORIST", FALSE, FALSE);
@@ -82,7 +83,6 @@ private:
 	static constexpr const char *ZB3_ZOMBIE_PLAYER_MODEL = "zombie_classic";
 	static constexpr const char *ZB3_ZOMBIE_PLAYER_MODEL_PATH = "models/player/zombie_classic/zombie_classic.mdl";
 	static constexpr const char *ZB3_SKYBOX_NAME = "black";
-	static constexpr float ZB3_FOG_DENSITY = 0.0025f;
 	static constexpr float ZB3_ROUND_END_DELAY = 5.0f;
 
 	static void ZB3_ApplyAtmosphereCvars()
@@ -106,7 +106,7 @@ private:
 			char b[4];
 		} density;
 
-		density.f = ZB3_FOG_DENSITY;
+		density.f = zb3_fog_density.value;
 		MESSAGE_BEGIN(MSG_ONE, gmsgFog, nullptr, pPlayer->pev);
 			WRITE_BYTE(0);
 			WRITE_BYTE(0);
@@ -347,14 +347,19 @@ private:
 		if (!pPlayer)
 			return;
 
+		ZB3_ApplyAtmosphereCvars();
+		ZB3_SendBlackFog(pPlayer);
+
 		if (pPlayer->m_bIsZombie)
 		{
+			BuyZoneIcon_Clear(pPlayer);
 			ForceZombieLoadoutAndHealth(pPlayer);
 			pPlayer->SetClientUserInfoModel(GET_INFO_BUFFER(pPlayer->edict()), (char *)ZB3_ZOMBIE_PLAYER_MODEL);
 			pPlayer->SetNewPlayerModel(ZB3_ZOMBIE_PLAYER_MODEL_PATH);
 		}
 		else
 		{
+			BuyZoneIcon_Set(pPlayer);
 			pPlayer->pev->health = ZB3_HUMAN_HEALTH;
 			pPlayer->pev->max_health = ZB3_HUMAN_HEALTH;
 			pPlayer->SetPlayerModel(pPlayer->m_bHasC4);

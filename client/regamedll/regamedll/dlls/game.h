@@ -89,6 +89,7 @@ extern cvar_t allow_spectators;
 extern cvar_t mp_chattime;
 extern cvar_t kick_percent;
 extern cvar_t humans_join_team;
+extern cvar_t zb3_fog_density;
 extern cvar_t sk_plr_9mm_bullet1;
 extern cvar_t sk_plr_9mm_bullet2;
 extern cvar_t sk_plr_9mm_bullet3;

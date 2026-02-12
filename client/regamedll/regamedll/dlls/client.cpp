@@ -3538,7 +3538,7 @@ void EXT_FUNC InternalCommand(edict_t *pEntity, const char *pcmd, const char *pa
 			}
 			else if (FStrEq(pcmd, "buyequip"))
 			{
-				if (pPlayer->CanPlayerBuy(true))
+				if (pPlayer->CanPlayerBuy(false))
 				{
 					if (CSGameRules()->m_bMapHasBombTarget)
 					{
@@ -3560,7 +3560,7 @@ void EXT_FUNC InternalCommand(edict_t *pEntity, const char *pcmd, const char *pa
 			}
 			else if (FStrEq(pcmd, "buy"))
 			{
-				if (pPlayer->CanPlayerBuy(true))
+				if (pPlayer->CanPlayerBuy(false))
 				{
 					ShowVGUIMenu(pPlayer, VGUI_Menu_Buy, (MENU_KEY_1 | MENU_KEY_2 | MENU_KEY_3 | MENU_KEY_4 | MENU_KEY_5 | MENU_KEY_6 | MENU_KEY_7 | MENU_KEY_8 | MENU_KEY_0), "#Buy");
 					pPlayer->m_iMenu = Menu_Buy;
