@@ -324,7 +324,7 @@ public:
 
 	int m_iPlayerNum;
 	int m_iNumTeams;
-	cvar_t *hud_topscoreboard;
+	cvar_t *cl_upperscoreboard;
 
 private:
 	int m_iLastKilledBy;
@@ -363,16 +363,6 @@ private:
 	int m_iSB_CTTextIndex;
 	bool m_bTopScoreBoardEnabled;
 	bool m_bTopIsTeamplay;
-
-	cvar_t *hud_topscoreboard_x;
-	cvar_t *hud_topscoreboard_y;
-	cvar_t *hud_topscoreboard_score_y;
-	cvar_t *hud_topscoreboard_alive_y;
-	cvar_t *hud_topscoreboard_pad_l;
-	cvar_t *hud_topscoreboard_pad_r;
-	cvar_t *hud_topscoreboard_center_y;
-	cvar_t *hud_topscoreboard_roundnum_y;
-	cvar_t *hud_topscoreboard_roundlabel_y;
 
 	void BuildHudNumberRect( int sprIndex, wrect_t *prc, int w, int h, int xOffset, int yOffset );
 	int GetHudNumberWidth( int sprIndex, wrect_t *prc, int iFlags, int iNumber );
