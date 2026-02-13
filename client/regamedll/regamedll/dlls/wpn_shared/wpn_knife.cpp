@@ -102,7 +102,7 @@ BOOL CKnife::Deploy()
 		return DefaultDeploy("models/shield/v_shield_knife.mdl", "models/shield/p_shield_knife.mdl", KNIFE_SHIELD_DRAW, "shieldknife", UseDecrement() != FALSE);
 	}
 	else
-		return DefaultDeploy(m_pPlayer->m_bIsZombie ? "models/csnc/v_zombie_classic.mdl" : "models/v_knife.mdl", "models/p_knife.mdl", KNIFE_DRAW, "knife", UseDecrement() != FALSE);
+		return DefaultDeploy((char *)(m_pPlayer->m_bIsZombie ? "models/csnc/v_zombie_classic.mdl" : "models/v_knife.mdl"), "models/p_knife.mdl", KNIFE_DRAW, "knife", UseDecrement() != FALSE);
 }
 
 void CKnife::Holster(int skiplocal)
