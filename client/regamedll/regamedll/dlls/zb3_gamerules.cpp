@@ -30,9 +30,30 @@ public:
 		if (pVictim->m_bIsZombie)
 			return;
 
-		EMIT_SOUND(ENT(pVictim->pev), CHAN_VOICE,
-			(RANDOM_LONG(1, 2) == 1) ? "csnc/human_death_01.wav" : "csnc/human_death_02.wav",
-			VOL_NORM, ATTN_NORM);
+		int alivePlayers = 0;
+		for (int i = 1; i <= gpGlobals->maxClients; ++i)
+		{
+			CBasePlayer *p = UTIL_PlayerByIndex(i);
+			if (!UTIL_IsValidPlayer(p))
+				continue;
+			if (!p->IsAlive())
+				continue;
+			++alivePlayers;
+		}
+
+		if (alivePlayers > 1)
+		{
+			const char *voice = (RANDOM_LONG(1, 2) == 1)
+				? "spk \"csnc/zombie_coming_1.wav\"\n"
+				: "spk \"csnc/zombie_coming_2.wav\"\n";
+			for (int i = 1; i <= gpGlobals->maxClients; ++i)
+			{
+				CBasePlayer *p = UTIL_PlayerByIndex(i);
+				if (!UTIL_IsValidPlayer(p))
+					continue;
+				CLIENT_COMMAND(p->edict(), voice);
+			}
+		}
 
 		pVictim->m_bIsZombie = true;
 		BuyZoneIcon_Clear(pVictim);
@@ -219,6 +240,7 @@ private:
 			m_iSavedTeam[i] = p->m_iTeam;
 			p->m_bIsZombie = false;
 			p->m_iZombieLevel = 0;
+			p->m_flZombieRespawnAt = 0.0f;
 			p->pev->max_health = ZB3_HUMAN_HEALTH;
 			if (p->IsAlive())
 				p->pev->health = ZB3_HUMAN_HEALTH;
@@ -249,6 +271,7 @@ private:
 	void Think() override
 	{
 		CHalfLifeMultiplay::Think();
+		ProcessZombieRespawns();
 
 		if (m_bRoundActive && CHalfLifeMultiplay::HasRoundTimeExpired())
 		{
@@ -369,6 +392,15 @@ private:
 	void PlayerKilled(CBasePlayer *pVictim, entvars_t *pKiller, entvars_t *pInflictor) override
 	{
 		CHalfLifeMultiplay::PlayerKilled(pVictim, pKiller, pInflictor);
+		if (!UTIL_IsValidPlayer(pVictim))
+			return;
+		if (!m_bRoundActive)
+			return;
+		if (!pVictim->m_bIsZombie)
+			return;
+
+		// Auto respawn as zombie after 10 seconds
+		pVictim->m_flZombieRespawnAt = gpGlobals->time + 10.0f;
 	}
 
 	BOOL FPlayerCanTakeDamage(CBasePlayer *pPlayer, CBaseEntity *pAttacker) override
@@ -470,6 +502,36 @@ private:
 	}
 
 private:
+	void ProcessZombieRespawns()
+	{
+		if (!m_bRoundActive)
+			return;
+		for (int i = 1; i <= gpGlobals->maxClients; ++i)
+		{
+			CBasePlayer *p = UTIL_PlayerByIndex(i);
+			if (!UTIL_IsValidPlayer(p))
+				continue;
+			if (p->IsAlive())
+				continue;
+			if (!p->m_bIsZombie)
+				continue;
+			if (p->m_flZombieRespawnAt <= 0.0f)
+				continue;
+			if (gpGlobals->time < p->m_flZombieRespawnAt)
+				continue;
+
+			p->m_flZombieRespawnAt = 0.0f;
+			respawn(p->pev, FALSE);
+			for (int j = 1; j <= gpGlobals->maxClients; ++j)
+			{
+				CBasePlayer *listener = UTIL_PlayerByIndex(j);
+				if (!UTIL_IsValidPlayer(listener))
+					continue;
+				CLIENT_COMMAND(listener->edict(), "spk \"csnc/zombie_comeback.wav\"\n");
+			}
+		}
+	}
+
 	void PickInitialZombie()
 	{
 		CBasePlayer *candidates[MAX_CLIENTS];
@@ -489,10 +551,13 @@ private:
 			return;
 
 		CBasePlayer *pick = candidates[RANDOM_LONG(0, count - 1)];
-
-		EMIT_SOUND(ENT(pick->pev), CHAN_VOICE,
-			(RANDOM_LONG(1, 2) == 1) ? "csnc/human_death_01.wav" : "csnc/human_death_02.wav",
-			VOL_NORM, ATTN_NORM);
+		for (int i = 1; i <= gpGlobals->maxClients; ++i)
+		{
+			CBasePlayer *p = UTIL_PlayerByIndex(i);
+			if (!UTIL_IsValidPlayer(p))
+				continue;
+			CLIENT_COMMAND(p->edict(), "spk \"csnc/zombie_comeback.wav\"\n");
+		}
 
 		pick->m_bIsZombie = true;
 		pick->m_iZombieLevel = 0;

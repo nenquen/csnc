@@ -2634,7 +2634,7 @@ void CL_InitLocal( void )
 	xhair_dynamic_move       = Cvar_Get( "xhair_dynamic_move", "1", 1, "xhair" );
 	xhair_dynamic_scale      = Cvar_Get( "xhair_dynamic_scale", "2", 1, "xhair" );
 	xhair_gap_useweaponvalue = Cvar_Get( "xhair_gap_useweaponvalue", "0", 1, "xhair" );
-	xhair_enable             = Cvar_Get( "xhair_enable", "0", 1, "xhair" );
+	xhair_enable             = Cvar_Get( "xhair_enable", "1", 1, "xhair" );
 	xhair_gap                = Cvar_Get( "xhair_gap", "1", 1, "xhair" );
 	xhair_pad                = Cvar_Get( "xhair_pad", "1", 1, "xhair" );
 	xhair_size               = Cvar_Get( "xhair_size", "1", 1, "xhair" );

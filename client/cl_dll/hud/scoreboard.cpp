@@ -82,7 +82,16 @@ int CHudScoreboard :: Init( void )
 {
 	gHUD.AddHudElem( this );
 
-	cl_upperscoreboard = CVAR_CREATE( "cl_upperscoreboard", "1", FCVAR_ARCHIVE );
+	hud_topscoreboard = CVAR_CREATE( "hud_topscoreboard", "1", FCVAR_ARCHIVE );
+	hud_topscoreboard_x = CVAR_CREATE( "hud_topscoreboard_x", "0", FCVAR_ARCHIVE );
+	hud_topscoreboard_y = CVAR_CREATE( "hud_topscoreboard_y", "0", FCVAR_ARCHIVE );
+	hud_topscoreboard_score_y = CVAR_CREATE( "hud_topscoreboard_score_y", "4", FCVAR_ARCHIVE );
+	hud_topscoreboard_alive_y = CVAR_CREATE( "hud_topscoreboard_alive_y", "28", FCVAR_ARCHIVE );
+	hud_topscoreboard_pad_l = CVAR_CREATE( "hud_topscoreboard_pad_l", "0", FCVAR_ARCHIVE );
+	hud_topscoreboard_pad_r = CVAR_CREATE( "hud_topscoreboard_pad_r", "0", FCVAR_ARCHIVE );
+	hud_topscoreboard_center_y = CVAR_CREATE( "hud_topscoreboard_center_y", "36", FCVAR_ARCHIVE );
+	hud_topscoreboard_roundnum_y = CVAR_CREATE( "hud_topscoreboard_roundnum_y", "10", FCVAR_ARCHIVE );
+	hud_topscoreboard_roundlabel_y = CVAR_CREATE( "hud_topscoreboard_roundlabel_y", "29", FCVAR_ARCHIVE );
 
 	// Hook messages & commands here
 	HOOK_COMMAND( "+showscores", ShowScores );
@@ -165,7 +174,7 @@ void CHudScoreboard :: InitHUDData( void )
 
 int CHudScoreboard :: Draw( float flTime )
 {
-	if (cl_upperscoreboard && cl_upperscoreboard->value && m_bTopScoreBoardEnabled)
+	if (hud_topscoreboard && hud_topscoreboard->value && m_bTopScoreBoardEnabled)
 	{
 		DrawTopScoreBoard( flTime );
 	}
@@ -348,12 +357,16 @@ int CHudScoreboard::DrawTopScoreBoard( float flTime )
 
 	int bgX = ( ScreenWidth - bgW ) / 2;
 	int bgY = 4;
+	if (hud_topscoreboard_x)
+		bgX += (int)hud_topscoreboard_x->value;
+	if (hud_topscoreboard_y)
+		bgY += (int)hud_topscoreboard_y->value;
 
 	SPR_Set( gHUD.GetSprite( m_iSB_BGIndex ), 255, 255, 255 );
 	SPR_Draw( 0, bgX, bgY, &bgRc );
 
-	const int scoreY = bgY + 4;
-	const int aliveY = bgY + 28;
+	const int scoreY = bgY + ( hud_topscoreboard_score_y ? (int)hud_topscoreboard_score_y->value : 4 );
+	const int aliveY = bgY + ( hud_topscoreboard_alive_y ? (int)hud_topscoreboard_alive_y->value : 26 );
 
 	const int scoreFlags = DHN_2DIGITS | DHN_DRAWZERO;
 	const int aliveFlags = DHN_2DIGITS | DHN_DRAWZERO;
@@ -363,8 +376,8 @@ int CHudScoreboard::DrawTopScoreBoard( float flTime )
 	const int scoreWidth = digitW_L * 2;
 	const int aliveWidth = digitW_S * 2;
 
-	const int scorePadL = 0;
-	const int scorePadR = 0;
+	const int scorePadL = ( hud_topscoreboard_pad_l ? (int)hud_topscoreboard_pad_l->value : 12 );
+	const int scorePadR = ( hud_topscoreboard_pad_r ? (int)hud_topscoreboard_pad_r->value : 12 );
 
 	// Layout anchors (reference-like): [left wing][center block][right wing]
 	const int centerW = 56;
@@ -396,12 +409,12 @@ int CHudScoreboard::DrawTopScoreBoard( float flTime )
 	int tGroupX = leftX + ( wingW - tGroupW ) / 2;
 	int ctGroupX = rightX + ( wingW - ctGroupW ) / 2;
 
-	// Preserve manual biasing knobs (pad) as a small shift
+	// Preserve manual biasing knobs (pad) as a small shift if user wants to tune
 	tGroupX += scorePadL;
 	ctGroupX -= scorePadR;
 
-	const int tScoreNumX = tGroupX;
-	const int ctScoreNumX = ctGroupX + ( hmW > 0 ? ( hmW + labelGap ) : 0 );
+	const int tScoreNumX = tGroupX + 8;
+	const int ctScoreNumX = ctGroupX + ( hmW > 0 ? ( hmW + labelGap ) : 0 ) - 8;
 
 	// Alive/total counters sit in the inner bottom boxes near the center block
 	const int aliveInsetL = 21;
@@ -415,12 +428,12 @@ int CHudScoreboard::DrawTopScoreBoard( float flTime )
 	if (m_iSBText_ZB != -1 && zbW > 0)
 	{
 		SPR_Set( gHUD.GetSprite( m_iSBText_ZB ), 255, 255, 255 );
-		SPR_DrawAdditive( 0, tScoreNumX + scoreWidth + labelGap, scoreY + 7, &zbRc );
+		SPR_DrawAdditive( 0, tGroupX + scoreWidth + labelGap + 10, scoreY + 7, &zbRc );
 	}
 	if (m_iSBText_HM != -1 && hmW > 0)
 	{
 		SPR_Set( gHUD.GetSprite( m_iSBText_HM ), 255, 255, 255 );
-		SPR_DrawAdditive( 0, ctGroupX, scoreY + 7, &hmRc );
+		SPR_DrawAdditive( 0, ctGroupX - 10, scoreY + 7, &hmRc );
 	}
 
 	// round number in the top-center box, ROUND label in the lower-center box
@@ -429,7 +442,7 @@ int CHudScoreboard::DrawTopScoreBoard( float flTime )
 		roundNum = 1;
 	const int roundNumWidth = digitW_L * 2;
 	const int roundNumX = centerX + ( centerW - roundNumWidth ) / 2;
-	const int roundNumY = bgY + 10;
+	const int roundNumY = bgY + ( hud_topscoreboard_roundnum_y ? (int)hud_topscoreboard_roundnum_y->value : 10 );
 	DrawHudNumber( m_iSBNum_L, m_rcNumber_Large, roundNumX, roundNumY, aliveFlags, roundNum, 128, 128, 128 );
 	DrawHudNumber( m_iSBNum_L, m_rcNumber_Large, roundNumX + 1, roundNumY, aliveFlags, roundNum, 128, 128, 128 );
 
@@ -437,7 +450,7 @@ int CHudScoreboard::DrawTopScoreBoard( float flTime )
 	{
 		wrect_t roundRc = gHUD.GetSpriteRect( m_iSBText_Round );
 		int roundTextW = roundRc.right - roundRc.left;
-		int centerY = bgY + 29;
+		int centerY = bgY + ( hud_topscoreboard_roundlabel_y ? (int)hud_topscoreboard_roundlabel_y->value : 29 );
 		int roundTextX = centerX + ( centerW - roundTextW ) / 2;
 		SPR_Set( gHUD.GetSprite( m_iSBText_Round ), 255, 255, 255 );
 		SPR_DrawAdditive( 0, roundTextX, centerY, &roundRc );
@@ -445,8 +458,8 @@ int CHudScoreboard::DrawTopScoreBoard( float flTime )
 
 	if (m_bTopIsTeamplay)
 	{
-		DrawHudNumber( m_iSBNum_S, m_rcNumber_Small, tAliveNumX, aliveY, aliveFlags, m_iTeamAlive_T, 128, 128, 128 );
-		DrawHudNumber( m_iSBNum_S, m_rcNumber_Small, ctAliveNumX, aliveY, aliveFlags, m_iTeamAlive_CT, 128, 128, 128 );
+		DrawHudNumber( m_iSBNum_S, m_rcNumber_Small, tAliveNumX, aliveY + 2, aliveFlags, m_iTeamAlive_T, 128, 128, 128 );
+		DrawHudNumber( m_iSBNum_S, m_rcNumber_Small, ctAliveNumX, aliveY + 2, aliveFlags, m_iTeamAlive_CT, 128, 128, 128 );
 	}
 
 	return 1;

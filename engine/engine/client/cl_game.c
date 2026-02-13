@@ -1403,21 +1403,21 @@ void CL_DrawHUD( int state )
 
 	if( state == CL_ACTIVE && cl.refdef.paused )
 		state = CL_PAUSED;
-	if(xhair_enable->value != 0)
+	if (xhair_enable)
 	{
-		DrawCrosshair31( );
+		xhair_enable->value = 1.0f;
+		xhair_enable->integer = 1;
 	}
+	DrawCrosshair31();
 	switch( state )
 	{
 	case CL_ACTIVE:
 		CL_DrawScreenFade ();
-		CL_DrawCrosshair ();
 		CL_DrawCenterPrint ();
 		clgame.dllFuncs.pfnRedraw( cl.time, cl.refdef.intermission );
 		break;
 	case CL_PAUSED:
 		CL_DrawScreenFade ();
-		CL_DrawCrosshair ();
 		CL_DrawCenterPrint ();
 		clgame.dllFuncs.pfnRedraw( cl.time, cl.refdef.intermission );
 		CL_DrawPause();

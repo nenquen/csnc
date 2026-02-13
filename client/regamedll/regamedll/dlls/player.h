@@ -779,6 +779,7 @@ public:
 	bool m_bIsVIP;
 	bool m_bIsZombie;
 	int m_iZombieLevel;
+	float m_flZombieRespawnAt;
 	float m_tmNextRadarUpdate;
 	Vector m_vLastOrigin;
 	int m_iCurrentKickVote;
