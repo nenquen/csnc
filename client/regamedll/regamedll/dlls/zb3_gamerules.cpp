@@ -152,6 +152,8 @@ private:
 		if (m_bAnnouncedRoundEnd)
 			return;
 		m_bAnnouncedRoundEnd = true;
+		m_iNumTerroristWins++;
+		UpdateTeamScores();
 
 		UTIL_ClientPrintAll(HUD_PRINTCENTER, "Zombie Win");
 		for (int i = 1; i <= gpGlobals->maxClients; ++i)
@@ -168,6 +170,8 @@ private:
 		if (m_bAnnouncedRoundEnd)
 			return;
 		m_bAnnouncedRoundEnd = true;
+		m_iNumCTWins++;
+		UpdateTeamScores();
 
 		UTIL_ClientPrintAll(HUD_PRINTCENTER, "Human Win");
 		for (int i = 1; i <= gpGlobals->maxClients; ++i)
@@ -238,6 +242,8 @@ private:
 			}
 
 			m_iSavedTeam[i] = p->m_iTeam;
+			if (p->m_iTeam == CT || p->m_iTeam == TERRORIST)
+				ForceTeamImmediate(p, CT);
 			p->m_bIsZombie = false;
 			p->m_iZombieLevel = 0;
 			p->m_flZombieRespawnAt = 0.0f;
