@@ -35,14 +35,13 @@ class CMenuMapListModel : public CMenuBaseModel
 {
 public:
 	void Update() override;
-	int GetColumns() const override { return 2; }
+	int GetColumns() const override { return 1; }
 	int GetRows() const override { return m_iNumItems; }
 	const char *GetCellText( int line, int column ) override
 	{
 		switch( column )
 		{
 		case 0: return mapName[line];
-		case 1: return mapsDescription[line];
 		}
 
 		return NULL;
@@ -68,7 +67,7 @@ public:
 	CMenuField	password;
 	CMenuCheckBox   nat;
 	CMenuCheckBox	hltv;
-	CMenuCheckBox	dedicatedServer;
+	CMenuCheckBox	bots;
 
 	// newgame prompt dialog
 	CMenuYesNoMessageBox msgBox;
@@ -150,38 +149,33 @@ void CMenuCreateGame::Begin( CMenuBaseItem *pSelf, void *pExtra )
 
 	EngFuncs::PlayBackgroundTrack( NULL, NULL );
 
-	// all done, start server
-	if( menu->dedicatedServer.bChecked )
+	// all done, start listen server
+	EngFuncs::WriteServerConfig( EngFuncs::GetCvarString( "lservercfgfile" ));
+
+	char cmd[1024], cmd2[256];
+	const int maxPlayers = atoi( menu->maxClients.GetBuffer() );
+	int botQuota = 0;
+	if( menu->bots.bChecked )
 	{
-		EngFuncs::WriteServerConfig( EngFuncs::GetCvarString( "servercfgfile" ));
-
-		char cmd[128];
-		sprintf( cmd, "#%s", gMenu.m_gameinfo.gamefolder );
-
-		// NOTE: dedicated server will be executed "defaultmap"
-		// from engine after restarting
-		EngFuncs::ChangeInstance( cmd, "Starting dedicated server...\n" );
+		botQuota = maxPlayers - 1;
+		if( botQuota < 0 ) botQuota = 0;
+		if( botQuota > 31 ) botQuota = 31;
 	}
-	else
-	{
-		EngFuncs::WriteServerConfig( EngFuncs::GetCvarString( "lservercfgfile" ));
 
-		char cmd[1024], cmd2[256];
-		sprintf( cmd, "exec %s\n", EngFuncs::GetCvarString( "lservercfgfile" ) );
-	
-		EngFuncs::ClientCmd( TRUE, cmd );
+	sprintf( cmd, "exec %s\n", EngFuncs::GetCvarString( "lservercfgfile" ) );
+	EngFuncs::ClientCmd( TRUE, cmd );
 
-		// dirty listenserver config form old xash may rewrite maxplayers
-		EngFuncs::CvarSetValue( "maxplayers", atoi( menu->maxClients.GetBuffer() ));
+	// dirty listenserver config form old xash may rewrite maxplayers
+	EngFuncs::CvarSetValue( "maxplayers", maxPlayers );
 
-		Com_EscapeCommand( cmd2, mapNameCopy, 256 );
-		Con_Printf( "CreateGame: escaped map '%s'\n", cmd2 );
+	Com_EscapeCommand( cmd2, mapNameCopy, 256 );
+	Con_Printf( "CreateGame: escaped map '%s'\n", cmd2 );
 
-		// hack: wait three frames allowing server to completely shutdown, reapply maxplayers and start new map
-		sprintf( cmd, "endgame;menu_connectionprogress localserver;wait;wait;wait;maxplayers %i;latch;map %s\n", atoi( menu->maxClients.GetBuffer() ), cmd2 );
-		EngFuncs::ClientCmd( FALSE, cmd );
-
-	}
+	// hack: wait three frames allowing server to completely shutdown, reapply maxplayers and start new map
+	sprintf( cmd,
+		"endgame;menu_connectionprogress localserver;wait;wait;wait;maxplayers %i;latch;bot_enable 1;bot_join_after_player 0;bot_quota_mode fill;bot_quota %i;map %s\n",
+		maxPlayers, botQuota, cmd2 );
+	EngFuncs::ClientCmd( FALSE, cmd );
 }
 
 /*
@@ -244,7 +238,7 @@ void CMenuCreateGame::_Init( void )
 	nat.SetNameAndStatus( L( "NAT" ), L( "Use NAT Bypass instead of direct mode" ) );
 	nat.bChecked = true;
 
-	dedicatedServer.SetNameAndStatus( L( "Dedicated server" ), L( "faster, but you can't join the server from this machine" ) );
+	bots.SetNameAndStatus( L( "Bots" ), L( "Fill server with bots" ) );
 
 	hltv.SetNameAndStatus( L( "HLTV" ), L( "Enable HLTV mode in Multiplayer" ) );
 	hltv.LinkCvar( "hltv" );
@@ -259,8 +253,7 @@ void CMenuCreateGame::_Init( void )
 	done->onReleasedClActive = msgBox.MakeOpenEvent();
 
 	mapsList.SetCharSize( QM_SMALLFONT );
-	mapsList.SetupColumn( 0, L( "GameUI_Map" ), 0.5f );
-	mapsList.SetupColumn( 1, L( "Title" ), 0.5f );
+	mapsList.SetupColumn( 0, L( "GameUI_Map" ), 1.0f );
 	mapsList.SetModel( &mapsListModel );
 
 	hostName.szName = L( "GameUI_ServerName" );
@@ -309,9 +302,7 @@ void CMenuCreateGame::_Init( void )
 	AddItem( hostName );
 	AddItem( maxClients );
 	AddItem( password );
-#if !(defined(__ANDROID__) || defined(__SAILFISH__))
-	AddItem( dedicatedServer );
-#endif
+	AddItem( bots );
 	// HLTV not yet supported
 	//AddItem( hltv );
 	AddItem( nat );
@@ -326,9 +317,9 @@ void CMenuCreateGame::_VidInit()
 	else nat.Show();
 
 	hltv.SetCoord( 72, 635 );
-	dedicatedServer.SetCoord( 72, 685 );
+	bots.SetCoord( 72, 685 );
 
-	mapsList.SetRect( 590, 230, -20, 465 );
+	mapsList.SetRect( 590, 230, 420, 465 );
 
 	hostName.SetRect( 350, 260, 205, 32 );
 	maxClients.SetRect( 350, 360, 205, 32 );
